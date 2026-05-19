@@ -118,7 +118,6 @@ Located in `roles/nomad/defaults/main.yaml`:
 ```yaml
 # Binary configuration
 nomad_binary_version: "1.11.1"
-nomad_binary_checksum: "sha256:a120ba1be96d536ef7196911b57bfbe78fe08c53935dfd16eae0206eba09d729"
 
 # Server configuration
 nomad_server_enabled: false

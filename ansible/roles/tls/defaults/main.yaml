@@ -1,0 +1,10 @@
+---
+# TLS role default variables
+
+tls_path: "{{ playbook_dir }}/.tls"
+tls_ca_generate: true
+tls_ca_pem_filename: "ca.pem"
+tls_ca_key_filename: "ca-key.pem"
+tls_self_signed_generate: []
+
+# Made with Bob

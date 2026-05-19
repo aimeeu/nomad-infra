@@ -5,7 +5,6 @@ nomad_user: "root"
 nomad_group: "root"
 
 nomad_binary_version: "1.11.1"
-nomad_binary_checksum: "sha256:a120ba1be96d536ef7196911b57bfbe78fe08c53935dfd16eae0206eba09d729"
 
 nomad_config_dir: "/etc/nomad.d"
 nomad_data_dir: "/opt/nomad/data"
