@@ -1,0 +1,14 @@
+[servers]
+%{ for name, instance in servers ~}
+${name} ansible_host=${instance.ip} private_ip=${instance.private_ip}
+%{ endfor ~}
+
+[clients]
+%{ for name, instance in clients ~}
+${name} ansible_host=${instance.ip} private_ip=${instance.private_ip}
+%{ endfor ~}
+
+[all:vars]
+ansible_user=${ssh_user}
+ansible_ssh_private_key_file=ssh_key.pem
+ansible_python_interpreter=/usr/bin/python3
