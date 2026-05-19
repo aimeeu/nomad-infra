@@ -27,3 +27,16 @@ resource "local_file" "public_key" {
   content  = tls_private_key.ssh_key.public_key_openssh
   filename = "${path.module}/../../ansible/ssh_key.pub"
 }
+
+# Ensure correct permissions on private key (belt and suspenders approach)
+resource "null_resource" "fix_key_permissions" {
+  depends_on = [local_sensitive_file.private_key]
+
+  provisioner "local-exec" {
+    command = "chmod 600 ${path.module}/../../ansible/ssh_key.pem"
+  }
+
+  triggers = {
+    key_content = tls_private_key.ssh_key.private_key_pem
+  }
+}

@@ -33,3 +33,29 @@ provider "aws" {
     }
   }
 }
+
+output "ssh_instructions" {
+  description = "SSH commands to access instances"
+  value = <<-EOT
+    ==========================================
+    SSH Access Instructions
+    ==========================================
+    
+    SSH Private Key Location: ../../ansible/ssh_key.pem
+    
+    Servers:
+    %{for idx, instance in aws_instance.servers~}
+      ssh -o IdentitiesOnly=yes' -i ../../ansible/ssh_key.pem ubuntu@${instance.public_ip}  # ${instance.tags.Name}
+    %{endfor~}
+    
+    Clients:
+    %{for idx, instance in aws_instance.clients~}
+      ssh -o 'IdentitiesOnly=yes' -i ../../ansible/ssh_key.pem ubuntu@${instance.public_ip}  # ${instance.tags.Name}
+    %{endfor~}
+    
+    Note: Ensure ssh_key.pem has correct permissions:
+      chmod 600 ../../ansible/ssh_key.pem
+    
+    ==========================================
+  EOT
+}

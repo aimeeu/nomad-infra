@@ -2,7 +2,10 @@
 
 ## Description
 
-The helper role is a utility role that provides common operations for Ansible playbooks. It simplifies repetitive tasks like package installation, file operations, directory synchronization, and systemd service management. This role makes playbooks cleaner and more maintainable by centralizing common patterns.
+The helper role is a utility role that provides common operations for Ansible
+playbooks. It simplifies repetitive tasks like package installation, file
+operations, directory synchronization, and systemd service management. This role
+makes playbooks cleaner and more maintainable by centralizing common patterns.
 
 ## Features
 
