@@ -1,15 +1,16 @@
 # nomad-infra
 
-Infrastructure-as-Code for deploying a HashiCorp Nomad and Consul cluster on AWS using Terraform.
+Infrastructure-as-Code for deploying a HashiCorp Nomad cluster on AWS using Terraform and Ansible.
 
 ## Overview
 
-This project provisions a complete Nomad and Consul cluster on AWS with:
-- 3 server nodes (running both Nomad and Consul in server mode)
+This project provisions and configures a complete Nomad cluster on AWS with:
+- 3 server nodes (running Nomad in server mode)
 - 2 client nodes (running Nomad clients)
 - Automated SSH key generation
-- Cloud auto-join configuration
+- Cloud auto-join configuration using AWS tags
 - Ansible inventory generation for configuration management
+- Automated Nomad installation and configuration via Ansible
 
 ## Architecture
 
@@ -23,8 +24,8 @@ This project provisions a complete Nomad and Consul cluster on AWS with:
 │  │                                                  │  │
 │  │  ┌──────────┐  ┌──────────┐  ┌──────────┐      │  │
 │  │  │ Server 1 │  │ Server 2 │  │ Server 3 │      │  │
-│  │  │ Nomad +  │  │ Nomad +  │  │ Nomad +  │      │  │
-│  │  │ Consul   │  │ Consul   │  │ Consul   │      │  │
+│  │  │  Nomad   │  │  Nomad   │  │  Nomad   │      │  │
+│  │  │  Server  │  │  Server  │  │  Server  │      │  │
 │  │  └──────────┘  └──────────┘  └──────────┘      │  │
 │  │                                                  │  │
 │  │  ┌──────────┐  ┌──────────┐                     │  │
@@ -102,14 +103,31 @@ Example SSH access:
 ssh -i ../../ansible/ssh_key.pem ubuntu@<server-ip>
 ```
 
-### 4. Configure with Ansible (Optional)
+### 4. Configure Nomad with Ansible
 
-An Ansible inventory file is automatically generated at `ansible/inventory.ini`:
+An Ansible inventory file is automatically generated at `ansible/inventory.ini`. Use the provided playbooks to install and configure Nomad:
 
 ```bash
 cd ../../ansible
+
+# Test connectivity
 ansible all -m ping
+
+# Install and configure Nomad on all nodes
+ansible-playbook site.yaml
+
+# Or configure servers and clients separately
+ansible-playbook playbooks/nomad_servers.yaml
+ansible-playbook playbooks/nomad_clients.yaml
 ```
+
+The Ansible playbooks will:
+- Install required system packages
+- Download and install Nomad v1.11.1
+- Configure Nomad servers with cloud auto-join
+- Configure Nomad clients to connect to servers
+- Set up systemd services
+- Start and enable Nomad services
 
 ## Configuration
 
@@ -144,8 +162,7 @@ The following outputs are available after deployment:
 - `server_private_ips` - Private IPs of server instances
 - `client_public_ips` - Public IPs of client instances
 - `client_private_ips` - Private IPs of client instances
-- `consul_ui_urls` - URLs to access Consul UI
-- `nomad_ui_urls` - URLs to access Nomad UI
+- `nomad_ui_urls` - URLs to access Nomad UI (http://server-ip:4646)
 - `ssh_commands` - SSH commands for all instances
 - `ssh_private_key_path` - Path to generated SSH private key
 
@@ -154,7 +171,6 @@ The following outputs are available after deployment:
 The security group allows:
 
 - **SSH (22)**: From `allowed_ssh_cidr` (default: 0.0.0.0/0 - **change this!**)
-- **Consul UI/API (8500)**: From anywhere (0.0.0.0/0)
 - **Nomad UI/API (4646)**: From anywhere (0.0.0.0/0)
 - **Internal traffic**: All ports between cluster members
 - **Egress**: All outbound traffic
@@ -169,7 +185,7 @@ The infrastructure creates IAM roles with the following permissions for cloud au
 - `ec2:DescribeTags`
 - `autoscaling:DescribeAutoScalingGroups`
 
-These permissions enable Consul and Nomad to automatically discover cluster members.
+These permissions enable Nomad to automatically discover cluster members using AWS tags.
 
 ## File Structure
 
@@ -191,7 +207,15 @@ nomad-infra/
 │       ├── inventory.tpl        # Ansible inventory template
 │       └── terraform.tfvars.example
 └── ansible/
-    └── ansible.cfg              # Ansible configuration
+    ├── ansible.cfg              # Ansible configuration
+    ├── site.yaml                # Main playbook
+    ├── playbooks/
+    │   ├── nomad_servers.yaml   # Server configuration
+    │   └── nomad_clients.yaml   # Client configuration
+    └── roles/
+        ├── common/              # Base system configuration
+        ├── hashicorp_release/   # HashiCorp binary installer
+        └── nomad/               # Nomad installation & config
 ```
 
 ## Cleanup
@@ -205,18 +229,93 @@ terraform destroy
 
 **Warning**: This will permanently delete all resources created by Terraform.
 
+## Ansible Configuration
+
+### Roles
+
+The project includes three Ansible roles:
+
+1. **common**: Base system configuration
+   - Installs required packages (jq, net-tools, ntp, unzip, curl, wget)
+   - Configures NTP
+   - Sets hostname
+
+2. **hashicorp_release**: Generic HashiCorp product installer
+   - Downloads and installs HashiCorp binaries
+   - Supports version checking and upgrades
+   - Handles architecture detection
+
+3. **nomad**: Nomad installation and configuration
+   - Installs Nomad v1.11.1
+   - Creates configuration directories
+   - Generates Nomad configuration from templates
+   - Sets up systemd service
+   - Supports both server and client modes
+   - Configures cloud auto-join for AWS
+
+### Playbooks
+
+- **site.yaml**: Main playbook that orchestrates the entire cluster configuration
+- **playbooks/nomad_servers.yaml**: Configures Nomad servers with cloud auto-join
+- **playbooks/nomad_clients.yaml**: Configures Nomad clients to connect to servers
+
+### Configuration Variables
+
+Key variables in [`ansible/roles/nomad/defaults/main.yaml`](ansible/roles/nomad/defaults/main.yaml):
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `nomad_binary_version` | Nomad version to install | `1.11.1` |
+| `nomad_server_enabled` | Enable server mode | `false` |
+| `nomad_client_enabled` | Enable client mode | `false` |
+| `nomad_cloud_auto_join_enabled` | Enable AWS cloud auto-join | `false` |
+| `nomad_acl_enabled` | Enable ACLs | `false` |
+| `nomad_log_level` | Logging level | `INFO` |
+
+### Running Playbooks
+
+```bash
+# Configure entire cluster
+ansible-playbook site.yaml
+
+# Configure only servers
+ansible-playbook playbooks/nomad_servers.yaml
+
+# Configure only clients
+ansible-playbook playbooks/nomad_clients.yaml
+
+# Check Nomad status
+ansible servers -a "nomad server members"
+ansible clients -a "nomad node status"
+```
+
 ## Next Steps
 
-After infrastructure deployment, you'll need to:
+After deployment and configuration:
 
-1. **Install Nomad and Consul** on all instances
-2. **Configure Nomad servers** with appropriate settings
-3. **Configure Consul servers** for service discovery
-4. **Configure Nomad clients** to connect to servers
-5. **Set up ACLs** for production environments
+1. **Verify cluster status**:
+   ```bash
+   nomad server members
+   nomad node status
+   ```
+
+2. **Access Nomad UI**: Navigate to any server's IP on port 4646
+   ```
+   http://<server-ip>:4646
+   ```
+
+3. **Bootstrap ACLs** (optional, for production):
+   ```bash
+   nomad acl bootstrap
+   ```
+
+4. **Deploy your first job**:
+   ```bash
+   nomad job run example.nomad
+   ```
+
+5. **Set up monitoring** with Prometheus/Grafana
 6. **Configure TLS** for secure communication
-
-Consider creating Ansible playbooks to automate these configuration steps.
 
 ## Known Issues
 
@@ -235,6 +334,7 @@ Copyright (c) 2026, Aimee Ukasick
 ## Resources
 
 - [HashiCorp Nomad Documentation](https://www.nomadproject.io/docs)
-- [HashiCorp Consul Documentation](https://www.consul.io/docs)
+- [Nomad Cloud Auto-Join](https://developer.hashicorp.com/nomad/docs/configuration/server_join)
 - [Terraform AWS Provider](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
 - [Ansible Documentation](https://docs.ansible.com/)
+- [Ansible Best Practices](https://docs.ansible.com/ansible/latest/tips_tricks/ansible_tips_tricks.html)

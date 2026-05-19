@@ -1,0 +1,43 @@
+---
+# Playbook to configure Nomad clients
+
+- name: Configure Nomad clients
+  hosts: clients
+  become: true
+  
+  vars:
+    nomad_server_enabled: false
+    nomad_client_enabled: true
+    nomad_cloud_auto_join_enabled: true
+    nomad_cloud_auto_join_tag_key: "Role"
+    nomad_cloud_auto_join_tag_value: "server"
+    nomad_acl_enabled: false
+    nomad_log_level: "INFO"
+    nomad_enable_debug: false
+
+  roles:
+    - role: common
+      vars:
+        common_hostname: "{{ inventory_hostname }}"
+    
+    - role: nomad
+
+  post_tasks:
+    - name: Wait for Nomad to be ready
+      ansible.builtin.wait_for:
+        port: 4646
+        delay: 5
+        timeout: 60
+
+    - name: Display Nomad node status
+      ansible.builtin.command: nomad node status
+      register: nomad_node_status
+      changed_when: false
+      failed_when: false
+
+    - name: Show Nomad node status
+      ansible.builtin.debug:
+        var: nomad_node_status.stdout_lines
+      when: nomad_node_status.rc == 0
+
+# Made with Bob

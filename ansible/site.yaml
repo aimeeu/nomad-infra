@@ -1,0 +1,38 @@
+---
+# Main playbook to configure the entire Nomad cluster
+
+- name: Configure all hosts
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Display host information
+      ansible.builtin.debug:
+        msg: "Configuring {{ inventory_hostname }} ({{ ansible_default_ipv4.address }})"
+
+- name: Import Nomad server playbook
+  ansible.builtin.import_playbook: playbooks/nomad_servers.yaml
+
+- name: Import Nomad client playbook
+  ansible.builtin.import_playbook: playbooks/nomad_clients.yaml
+
+- name: Cluster status summary
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Display completion message
+      ansible.builtin.debug:
+        msg:
+          - "=========================================="
+          - "Nomad Cluster Configuration Complete!"
+          - "=========================================="
+          - ""
+          - "Servers configured: {{ groups['servers'] | length }}"
+          - "Clients configured: {{ groups['clients'] | length }}"
+          - ""
+          - "Access Nomad UI at:"
+          - "{% for host in groups['servers'] %}  - http://{{ hostvars[host].ansible_host }}:4646{% endfor %}"
+          - ""
+          - "Next steps:"
+          - "  1. Bootstrap ACLs (if needed): nomad acl bootstrap"
+          - "  2. Verify cluster: nomad server members"
+          - "  3. Check nodes: nomad node status"

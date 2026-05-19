@@ -1,0 +1,42 @@
+---
+# Nomad role default variables
+
+nomad_user: "root"
+nomad_group: "root"
+
+nomad_binary_version: "1.11.1"
+nomad_binary_checksum: "sha256:a120ba1be96d536ef7196911b57bfbe78fe08c53935dfd16eae0206eba09d729"
+
+nomad_config_dir: "/etc/nomad.d"
+nomad_data_dir: "/opt/nomad/data"
+nomad_plugin_dir: "/opt/nomad/plugins"
+
+nomad_service_name: "nomad"
+
+# Nomad server configuration
+nomad_server_enabled: false
+nomad_server_bootstrap_expect: 3
+
+# Nomad client configuration
+nomad_client_enabled: false
+nomad_client_servers: []
+
+# ACL configuration
+nomad_acl_enabled: false
+
+# Telemetry configuration
+nomad_telemetry_enabled: true
+nomad_telemetry_prometheus_metrics: true
+
+# Logging configuration
+nomad_log_level: "INFO"
+nomad_log_file: "/var/log/nomad.log"
+nomad_log_include_location: false
+nomad_enable_debug: false
+
+# Cloud auto-join configuration (AWS)
+nomad_cloud_auto_join_enabled: false
+nomad_cloud_auto_join_tag_key: "Role"
+nomad_cloud_auto_join_tag_value: "server"
+
+# Made with Bob

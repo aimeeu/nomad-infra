@@ -1,0 +1,14 @@
+---
+# Common role default variables
+
+common_apt_packages:
+  - jq
+  - net-tools
+  - ntp
+  - unzip
+  - curl
+  - wget
+
+common_hostname: ""
+
+# Made with Bob

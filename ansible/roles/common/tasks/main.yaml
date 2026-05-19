@@ -1,0 +1,43 @@
+---
+# Common role tasks
+
+- name: Update apt cache
+  become: true
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install common packages
+  become: true
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ common_apt_packages }}"
+
+- name: Check timedatectl NTP status
+  become: true
+  ansible.builtin.command: timedatectl
+  register: timedatectl_ntpd_status
+  changed_when: false
+
+- name: Disable timedatectl NTP if active
+  become: true
+  ansible.builtin.command: timedatectl set-ntp no
+  when: '"NTP service: active" in timedatectl_ntpd_status.stdout'
+
+- name: Set hostname
+  become: true
+  ansible.builtin.hostname:
+    name: "{{ common_hostname }}"
+    use: systemd
+  when: common_hostname is defined and common_hostname != ""
+
+- name: Ensure /etc/hosts contains hostname
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    line: "127.0.1.1 {{ common_hostname }}"
+    state: present
+  when: common_hostname is defined and common_hostname != ""
+
+# Made with Bob
