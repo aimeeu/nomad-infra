@@ -1,0 +1,12 @@
+---
+# Sync local paths to remote
+
+- name: Sync local paths to remote
+  ansible.posix.synchronize:
+    src: "{{ item }}"
+    dest: "/home/{{ ansible_user }}"
+    mode: push
+  loop: "{{ helper_sync_local_paths }}"
+  when: helper_sync_local_paths | length > 0
+
+# Made with Bob

@@ -1,0 +1,12 @@
+---
+# Systemd service operations
+
+- name: Start and enable systemd service
+  become: true
+  ansible.builtin.systemd_service:
+    name: "{{ helper_systemd_start_service_name }}"
+    enabled: true
+    state: started
+  when: helper_systemd_start_service_name != ""
+
+# Made with Bob

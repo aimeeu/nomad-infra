@@ -1,0 +1,76 @@
+---
+# Playbook to configure Nomad servers
+
+- name: Configure Nomad servers
+  hosts: servers
+  become: true
+  
+  vars:
+    nomad_server_enabled: true
+    nomad_server_bootstrap_expect: "{{ groups['servers'] | length }}"
+    nomad_client_enabled: false
+    nomad_cloud_auto_join_enabled: true
+    nomad_cloud_auto_join_tag_key: "Role"
+    nomad_cloud_auto_join_tag_value: "server"
+    nomad_acl_enabled: false
+    nomad_log_level: "INFO"
+    nomad_enable_debug: false
+
+  pre_tasks:
+    - name: Generate TLS certificates
+      ansible.builtin.include_role:
+        name: tls
+      vars:
+        tls_self_signed_generate:
+          - agent-name: "{{ inventory_hostname }}"
+            ip: "{{ ansible_default_ipv4.address }}"
+            dns: "{{ inventory_hostname }}"
+      run_once: true
+      delegate_to: localhost
+
+  roles:
+    - role: common
+      vars:
+        common_hostname: "{{ inventory_hostname }}"
+    
+    - role: helper
+      vars:
+        helper_apt_packages:
+          - jq
+          - net-tools
+          - unzip
+          - nano
+          - build-essential
+          - git
+        helper_file_copy_local:
+          - src: "{{ playbook_dir }}/../.tls/ca.pem"
+            dst: "/etc/nomad.d/.tls/ca.crt"
+            mode: "0644"
+          - src: "{{ playbook_dir }}/../.tls/{{ inventory_hostname }}.pem"
+            dst: "/etc/nomad.d/.tls/nomad.crt"
+            mode: "0644"
+          - src: "{{ playbook_dir }}/../.tls/{{ inventory_hostname }}-key.pem"
+            dst: "/etc/nomad.d/.tls/nomad.key"
+            mode: "0600"
+    
+    - role: nomad
+
+  post_tasks:
+    - name: Wait for Nomad to be ready
+      ansible.builtin.wait_for:
+        port: 4646
+        delay: 5
+        timeout: 60
+
+    - name: Display Nomad server status
+      ansible.builtin.command: nomad server members
+      register: nomad_server_members
+      changed_when: false
+      failed_when: false
+
+    - name: Show Nomad server members
+      ansible.builtin.debug:
+        var: nomad_server_members.stdout_lines
+      when: nomad_server_members.rc == 0
+
+# Made with Bob
