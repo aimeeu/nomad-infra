@@ -110,6 +110,9 @@ An Ansible inventory file is automatically generated at `ansible/inventory.ini`.
 ```bash
 cd ../../ansible
 
+# Install required Ansible Galaxy roles
+ansible-galaxy install -r requirements.yaml
+
 # Test connectivity
 ansible all -m ping
 
@@ -123,6 +126,8 @@ ansible-playbook playbooks/nomad_clients.yaml
 
 The Ansible playbooks will:
 - Install required system packages
+- Install CNI plugins for container networking (Ubuntu only)
+- Install Docker on client nodes
 - Download and install Nomad v1.11.1
 - Configure Nomad servers with cloud auto-join
 - Configure Nomad clients to connect to servers
@@ -233,19 +238,31 @@ terraform destroy
 
 ### Roles
 
-The project includes three Ansible roles:
+The project includes four custom Ansible roles plus one external role:
 
 1. **common**: Base system configuration
    - Installs required packages (jq, net-tools, ntp, unzip, curl, wget)
    - Configures NTP
    - Sets hostname
 
-2. **hashicorp_release**: Generic HashiCorp product installer
+2. **cni**: Container Network Interface plugins installer
+   - Downloads and installs CNI plugins v1.9.0
+   - Installs to /opt/cni/bin
+   - Only runs on Ubuntu systems
+   - Required for container networking in Nomad
+
+3. **geerlingguy.docker** (External): Docker installation
+   - Installs Docker CE on client nodes
+   - Adds ansible user to docker group
+   - Configures Docker daemon
+   - Required for running containerized workloads
+
+4. **hashicorp_release**: Generic HashiCorp product installer
    - Downloads and installs HashiCorp binaries
    - Supports version checking and upgrades
    - Handles architecture detection
 
-3. **nomad**: Nomad installation and configuration
+5. **nomad**: Nomad installation and configuration
    - Installs Nomad v1.11.1
    - Creates configuration directories
    - Generates Nomad configuration from templates
@@ -275,6 +292,9 @@ Key variables in [`ansible/roles/nomad/defaults/main.yaml`](ansible/roles/nomad/
 ### Running Playbooks
 
 ```bash
+# Install required external roles first
+ansible-galaxy install -r requirements.yaml
+
 # Configure entire cluster
 ansible-playbook site.yaml
 

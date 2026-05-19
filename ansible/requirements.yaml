@@ -1,0 +1,7 @@
+---
+# Ansible Galaxy requirements file
+# Install with: ansible-galaxy install -r requirements.yaml
+
+roles:
+  - name: geerlingguy.docker
+    version: 7.4.1

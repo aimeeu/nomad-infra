@@ -9,6 +9,9 @@ After running `terraform apply`, the inventory file will be automatically genera
 ```bash
 cd ansible
 
+# Install required Ansible Galaxy roles
+ansible-galaxy install -r requirements.yaml
+
 # Test connectivity
 ansible all -m ping
 
@@ -29,6 +32,9 @@ ansible/
 │   └── nomad_clients.yaml  # Client configuration playbook
 └── roles/
     ├── common/             # Base system setup
+    │   ├── defaults/
+    │   └── tasks/
+    ├── cni/                # CNI plugins installer
     │   ├── defaults/
     │   └── tasks/
     ├── hashicorp_release/  # HashiCorp binary installer
@@ -71,6 +77,21 @@ Base system configuration:
 - Installs essential packages (jq, net-tools, ntp, unzip, curl, wget)
 - Configures NTP for time synchronization
 - Sets hostname based on inventory
+
+### cni
+Container Network Interface (CNI) plugins installation:
+- Downloads CNI plugins v1.9.0 from GitHub
+- Installs to /opt/cni/bin
+- Creates configuration directory at /opt/cni/config
+- Only runs on Ubuntu systems
+- Required for container networking in Nomad
+
+### geerlingguy.docker (External Role)
+Docker installation and configuration:
+- Installs Docker CE on client nodes
+- Adds ansible user to docker group
+- Configures Docker daemon
+- Required for running containerized workloads in Nomad
 
 ### hashicorp_release
 Generic role for installing HashiCorp products:
@@ -121,6 +142,12 @@ nomad_log_file: "/var/log/nomad.log"
 ```
 
 ## Usage Examples
+
+### Install Required Roles
+Before running playbooks, install external roles from Ansible Galaxy:
+```bash
+ansible-galaxy install -r requirements.yaml
+```
 
 ### Configure Entire Cluster
 ```bash

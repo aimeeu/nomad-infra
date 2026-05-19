@@ -20,6 +20,15 @@
       vars:
         common_hostname: "{{ inventory_hostname }}"
     
+    - role: cni
+      when: ansible_distribution == "Ubuntu"
+    
+    - role: geerlingguy.docker
+      become: true
+      vars:
+        docker_users:
+          - "{{ ansible_user }}"
+    
     - role: nomad
 
   post_tasks:
