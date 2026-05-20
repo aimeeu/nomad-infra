@@ -1,10 +1,12 @@
 # Ansible Configuration for Nomad Cluster
 
-This directory contains Ansible playbooks and roles to install and configure HashiCorp Nomad on the infrastructure provisioned by Terraform.
+This directory contains Ansible playbooks and roles to install and configure HashiCorp Nomad v2.0.0 on the infrastructure provisioned by Terraform.
+
+**📖 [Complete Deployment Guide](../DEPLOYMENT.md)** - Step-by-step instructions for the full deployment process
 
 ## Overview
 
-The Ansible configuration automates the complete setup of a Nomad cluster, including:
+The Ansible configuration automates the complete setup of a Nomad v2.0.0 cluster, including:
 - Base system configuration and package installation
 - TLS certificate generation and distribution
 - Container networking setup (CNI plugins)
