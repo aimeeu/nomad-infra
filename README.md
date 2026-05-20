@@ -1,10 +1,12 @@
 # nomad-infra
 
-Infrastructure-as-Code for deploying a HashiCorp Nomad cluster on AWS using Terraform and Ansible.
+Infrastructure-as-Code for deploying a HashiCorp Nomad v2.0.0 cluster on AWS using Terraform and Ansible.
 
 ## Overview
 
-This project provides a complete, production-ready solution for deploying HashiCorp Nomad clusters on AWS. It combines Terraform for infrastructure provisioning and Ansible for configuration management, enabling rapid deployment of secure, scalable Nomad clusters with minimal manual intervention.
+This project provides a complete, production-ready solution for deploying HashiCorp Nomad v2.0.0 clusters on AWS. It combines Terraform for infrastructure provisioning and Ansible for configuration management, enabling rapid deployment of secure, scalable Nomad clusters with minimal manual intervention.
+
+**📖 [Complete Deployment Guide](DEPLOYMENT.md)** - Step-by-step instructions for deploying your cluster
 
 ### Key Features
 
@@ -77,6 +79,8 @@ ansible-galaxy install -r ansible/requirements.yaml
 ```
 
 ## Quick Start
+
+**For detailed step-by-step instructions, see the [Complete Deployment Guide](DEPLOYMENT.md).**
 
 ### 1. Configure Variables
 

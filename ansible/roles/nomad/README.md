@@ -2,7 +2,7 @@
 
 ## Description
 
-The nomad role installs and configures HashiCorp Nomad on both server and client nodes. It handles binary installation, configuration file generation, systemd service setup, and initial service startup.
+The nomad role installs and configures HashiCorp Nomad v2.0.0 on both server and client nodes. It handles binary installation, configuration file generation, systemd service setup, and initial service startup.
 
 ## Features
 
@@ -21,7 +21,7 @@ The nomad role installs and configures HashiCorp Nomad on both server and client
 |----------|------|---------|-------------|
 | `nomad_user` | string | `root` | User to run Nomad service |
 | `nomad_group` | string | `root` | Group to run Nomad service |
-| `nomad_binary_version` | string | `1.11.1` | Nomad version to install |
+| `nomad_binary_version` | string | `2.0.0` | Nomad version to install |
 | `nomad_config_dir` | string | `/etc/nomad.d` | Configuration directory |
 | `nomad_data_dir` | string | `/opt/nomad/data` | Data directory |
 | `nomad_plugin_dir` | string | `/opt/nomad/plugins` | Plugin directory |
