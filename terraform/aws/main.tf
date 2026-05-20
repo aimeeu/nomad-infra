@@ -45,7 +45,7 @@ output "ssh_instructions" {
     
     Servers:
     %{for idx, instance in aws_instance.servers~}
-      ssh -o IdentitiesOnly=yes' -i ../../ansible/ssh_key.pem ubuntu@${instance.public_ip}  # ${instance.tags.Name}
+      ssh -o 'IdentitiesOnly=yes' -i ../../ansible/ssh_key.pem ubuntu@${instance.public_ip}  # ${instance.tags.Name}
     %{endfor~}
     
     Clients:

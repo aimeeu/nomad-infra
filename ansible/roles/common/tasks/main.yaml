@@ -17,13 +17,14 @@
 - name: Check timedatectl NTP status
   become: true
   ansible.builtin.command: timedatectl
-  register: timedatectl_ntpd_status
+  register: common_timedatectl_ntpd_status
   changed_when: false
 
 - name: Disable timedatectl NTP if active
   become: true
   ansible.builtin.command: timedatectl set-ntp no
-  when: '"NTP service: active" in timedatectl_ntpd_status.stdout'
+  when: '"NTP service: active" in common_timedatectl_ntpd_status.stdout'
+  changed_when: false
 
 - name: Set hostname
   become: true

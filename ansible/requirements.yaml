@@ -4,8 +4,14 @@
 
 collections:
   - name: community.crypto
-    version: ">=2.0.0"
+    version: ">=3.2.0"
+  - name: ansible.posix
+    version: ">=2.2.0"
+  - name: community.general
+    version: ">=9.0.0"
+  - name: amazon.aws
+    version: ">=10.3.1"
 
 roles:
   - name: geerlingguy.docker
-    version: 7.4.1
+    version: "8.0.0"

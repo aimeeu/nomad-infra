@@ -6,12 +6,19 @@ resource "tls_private_key" "ssh_key" {
 
 # Create AWS key pair using the generated public key
 resource "aws_key_pair" "nomad_consul_key" {
-  key_name   = "${var.project_name}-key"
+  key_name   = "${var.project_name}-key-${formatdate("YYYYMMDDhhmmss", timestamp())}"
   public_key = tls_private_key.ssh_key.public_key_openssh
 
   tags = {
     Name  = "${var.project_name}-key"
     Owner = var.owner
+  }
+
+  lifecycle {
+    create_before_destroy = true
+    ignore_changes = [
+      key_name,  # Ignore changes to key_name to prevent recreation on every apply
+    ]
   }
 }
 

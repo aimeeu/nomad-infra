@@ -1,6 +1,3 @@
-
-
-
 # Nomad/Consul Server Instances
 resource "aws_instance" "servers" {
   count                  = var.server_count
@@ -9,6 +6,7 @@ resource "aws_instance" "servers" {
   key_name               = aws_key_pair.nomad_consul_key.key_name
   subnet_id              = aws_subnet.subnet.id
   vpc_security_group_ids = [aws_security_group.nomad_consul_sg.id]
+  iam_instance_profile   = aws_iam_instance_profile.instance_profile.name
 
   root_block_device {
     volume_size = 50
@@ -18,7 +16,7 @@ resource "aws_instance" "servers" {
   tags = {
     Name     = "${var.project_name}-server-${count.index + 1}"
     Owner    = var.owner
-    Role     = "server"
+    AutoJoinRole     = "server"
     Hostname = "${var.project_name}-server-${count.index + 1}"
   }
 }
@@ -31,6 +29,7 @@ resource "aws_instance" "clients" {
   key_name               = aws_key_pair.nomad_consul_key.key_name
   subnet_id              = aws_subnet.subnet.id
   vpc_security_group_ids = [aws_security_group.nomad_consul_sg.id]
+  iam_instance_profile   = aws_iam_instance_profile.instance_profile.name
 
   root_block_device {
     volume_size = 50
@@ -40,7 +39,7 @@ resource "aws_instance" "clients" {
   tags = {
     Name     = "${var.project_name}-client-${count.index + 1}"
     Owner    = var.owner
-    Role     = "client"
+    AutoJoinRole     = "client"
     Hostname = "${var.project_name}-client-${count.index + 1}"
   }
 }

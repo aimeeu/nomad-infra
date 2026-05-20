@@ -58,7 +58,7 @@ data "aws_availability_zones" "available" {
 
 resource "aws_security_group" "nomad_consul_sg" {
   name        = "${var.project_name}-sg"
-  description = "Security group for Nomad and Consul cluster"
+  description = "Security group for Nomad and Consul cluster managed by Terraform and Ansible"
   vpc_id      = aws_vpc.nomad_consul_vpc.id
 
   # SSH access
@@ -76,7 +76,7 @@ resource "aws_security_group" "nomad_consul_sg" {
     to_port     = 8500
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
-    description = "Consul HTTP API"
+    description = "Consul UI and HTTP API"
   }
 
 
@@ -86,7 +86,7 @@ resource "aws_security_group" "nomad_consul_sg" {
     to_port     = 4646
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
-    description = "Nomad HTTP API"
+    description = "Nomad UI and HTTP API"
   }
 
 
