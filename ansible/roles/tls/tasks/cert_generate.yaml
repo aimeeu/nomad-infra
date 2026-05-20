@@ -3,6 +3,7 @@
 
 - name: Generate certificate for {{ item['agent-name'] }}
   delegate_to: 127.0.0.1
+  become: false
   block:
     - name: Create private key for {{ item['agent-name'] }}
       community.crypto.openssl_privatekey:

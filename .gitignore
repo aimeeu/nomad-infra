@@ -21,6 +21,7 @@ ansible/inventory.ini
 *_token.txt
 ansible/ssh_key.pem
 ansible/ssh_key.pub
+.tls/
 
 # IDE
 .vscode/
@@ -37,4 +38,4 @@ Thumbs.db
 id_rsa
 id_rsa.pub
 
-# Made with Bob
+

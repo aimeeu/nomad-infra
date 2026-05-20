@@ -43,13 +43,13 @@
             content: |
               Nomad ACL Bootstrap Token
               =========================
-              Generated: {{ ansible_date_time.iso8601 }}
+              Generated: {{ now(fmt='%Y-%m-%d %H:%M:%S') }}
 
               {{ nomad_acl_bootstrap_result.stdout }}
 
               Quick Reference
               ===============
-              Secret ID: {{ nomad_bootstrap_secret_id }}
+              Token Secret ID: {{ nomad_bootstrap_secret_id }}
 
               Usage
               =====
@@ -58,7 +58,7 @@
 
               Or use with commands:
                 nomad status -token={{ nomad_bootstrap_secret_id }}
-            dest: "{{ playbook_dir }}/../nomad_bootstrap_token.txt"
+            dest: "{{ playbook_dir }}/nomad-bootstrap-token-output.txt"
             mode: "0600"
           delegate_to: localhost
           become: false
@@ -66,7 +66,7 @@
         - name: Save bootstrap token SecretID only
           ansible.builtin.copy:
             content: "{{ nomad_bootstrap_secret_id }}"
-            dest: "{{ playbook_dir }}/../nomad_bootstrap_secret_id.txt"
+            dest: "{{ playbook_dir }}/nomad-bootstrap-secret-id.txt"
             mode: "0600"
           delegate_to: localhost
           become: false
@@ -81,8 +81,8 @@
               - "Secret ID: {{ nomad_bootstrap_secret_id }}"
               - ""
               - "Token files saved to:"
-              - "  - {{ playbook_dir }}/../nomad_bootstrap_token.txt (full details)"
-              - "  - {{ playbook_dir }}/../nomad_bootstrap_secret_id.txt (token only)"
+              - "  - {{ playbook_dir }}/nomad-bootstrap-token-output.txt (full details)"
+              - "  - {{ playbook_dir }}/nomad-bootstrap-secret-id.txt(token only)"
               - ""
               - "IMPORTANT: Save these tokens securely!"
               - "They provide full administrative access to your Nomad cluster."
@@ -97,7 +97,7 @@
       block:
         - name: Check if token file exists locally
           ansible.builtin.stat:
-            path: "{{ playbook_dir }}/../nomad_bootstrap_secret_id.txt"
+            path: "{{ playbook_dir }}/nomad_bootstrap_secret_id.txt"
           register: token_file_exists
           delegate_to: localhost
           become: false
@@ -107,7 +107,7 @@
           block:
             - name: Read existing token
               ansible.builtin.slurp:
-                src: "{{ playbook_dir }}/../nomad_bootstrap_secret_id.txt"
+                src: "{{ playbook_dir }}/nomad_bootstrap_secret_id.txt"
               register: existing_token
               delegate_to: localhost
               become: false
@@ -125,8 +125,8 @@
                   - "  Secret ID: {{ existing_token.content | b64decode | trim }}"
                   - ""
                   - "Token files location:"
-                  - "  - {{ playbook_dir }}/../nomad_bootstrap_token.txt"
-                  - "  - {{ playbook_dir }}/../nomad_bootstrap_secret_id.txt"
+                  - "  - {{ playbook_dir }}/nomad-bootstrap-token-output.txt"
+                  - "  - {{ playbook_dir }}/nomad-bootstrap-secret-id.txt"
                   - ""
                   - "=========================================="
 
@@ -141,9 +141,9 @@
               - "The ACL system was previously bootstrapped,"
               - "but no local token file was found."
               - ""
-              - "If you lost the bootstrap token, you will need to:"
-              - "  1. Reset the ACL system (requires cluster restart)"
-              - "  2. Or use an existing management token to create new tokens"
+              - "If you lost the bootstrap token, you will need to"
+              - "bootstrap the system again. SSH into a server and follow these instructions:"
+              - "https://developer.hashicorp.com/nomad/docs/secure/acl/bootstrap#re-bootstrap-acl-system"
               - ""
               - "=========================================="
 

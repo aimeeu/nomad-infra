@@ -5,6 +5,7 @@
   when: tls_ca_generate is true
   run_once: true
   delegate_to: 127.0.0.1
+  become: false
   block:
     - name: Ensure TLS directory exists
       ansible.builtin.file:
@@ -15,18 +16,18 @@
     - name: Check if CA private key exists
       ansible.builtin.stat:
         path: "{{ tls_path }}/{{ tls_ca_key_filename }}"
-      register: ca_key_exists
+      register: tls_ca_key_exists
 
     - name: Create CA private key
       community.crypto.openssl_privatekey:
         path: "{{ tls_path }}/{{ tls_ca_key_filename }}"
         mode: "0600"
-      when: not ca_key_exists.stat.exists
+      when: not tls_ca_key_exists.stat.exists
 
     - name: Check if CA certificate exists
       ansible.builtin.stat:
         path: "{{ tls_path }}/{{ tls_ca_pem_filename }}"
-      register: ca_pem_exists
+      register: tls_ca_pem_exists
 
     - name: Create CA CSR
       community.crypto.openssl_csr_pipe:
@@ -39,17 +40,17 @@
         key_usage:
           - keyCertSign
         key_usage_critical: true
-      register: ca_csr
-      when: not ca_pem_exists.stat.exists
+      register: tls_ca_csr
+      when: not tls_ca_pem_exists.stat.exists
 
     - name: Create self-signed CA certificate
       community.crypto.x509_certificate:
         path: "{{ tls_path }}/{{ tls_ca_pem_filename }}"
-        csr_content: "{{ ca_csr.csr }}"
+        csr_content: "{{ tls_ca_csr.csr }}"
         privatekey_path: "{{ tls_path }}/{{ tls_ca_key_filename }}"
         provider: selfsigned
         mode: "0644"
-      when: not ca_pem_exists.stat.exists
+      when: not tls_ca_pem_exists.stat.exists
 
 - name: Generate self-signed certificates
   ansible.builtin.include_tasks: cert_generate.yaml

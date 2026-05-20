@@ -35,4 +35,4 @@
     path: "{{ cni_plugins_file.dest }}"
     state: absent
 
-# Made with Bob
+

@@ -24,18 +24,19 @@ nomad_client_servers: []
 nomad_acl_enabled: false
 
 # Telemetry configuration
-nomad_telemetry_enabled: true
-nomad_telemetry_prometheus_metrics: true
+nomad_telemetry_enabled: false
+nomad_telemetry_prometheus_metrics: false
 
 # Logging configuration
-nomad_log_level: "INFO"
+nomad_log_level: "DEBUG"
 nomad_log_file: "/var/log/nomad.log"
 nomad_log_include_location: false
 nomad_enable_debug: false
 
 # Cloud auto-join configuration (AWS)
 nomad_cloud_auto_join_enabled: false
-nomad_cloud_auto_join_tag_key: "Role"
+nomad_cloud_auto_join_tag_key: "AutoJoinRole"
 nomad_cloud_auto_join_tag_value: "server"
 
-# Made with Bob
+# TLS configuration
+nomad_tls_enabled: false

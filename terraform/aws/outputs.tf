@@ -65,4 +65,12 @@ output "ssh_public_key" {
   value       = tls_private_key.ssh_key.public_key_openssh
 }
 
+output "iam_role_name" {
+  description = "IAM role name"
+  value       = aws_iam_role.instance_role.name
+}
 
+output "iam_instance_profile_name" {
+  description = "IAM instance profile name"
+  value = aws_iam_instance_profile.instance_profile.name
+}
