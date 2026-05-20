@@ -23,7 +23,6 @@ After running `terraform apply`, the inventory file will be automatically genera
 cd ansible
 
 # Install required Ansible Galaxy roles and collections
-ansible-galaxy collection install community.crypto ansible.posix
 ansible-galaxy install -r requirements.yaml
 
 # Test connectivity
