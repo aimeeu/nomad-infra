@@ -72,9 +72,8 @@ This project provides a complete, production-ready solution for deploying HashiC
 
 ### Ansible Collections
 
-Install required Ansible collections:
+Install required Ansible collections and roles:
 ```bash
-ansible-galaxy collection install community.crypto ansible.posix
 ansible-galaxy install -r ansible/requirements.yaml
 ```
 
@@ -139,45 +138,46 @@ cd ../../ansible
 # Install required Ansible Galaxy roles
 ansible-galaxy install -r requirements.yaml
 
-# Test connectivity
-ansible all -m ping
-
 # Install and configure Nomad on all nodes
-ansible-playbook site.yaml
+ansible-playbook -i inventory.ini site.yaml
+
+# Bootstrap the Nomad ACL system
+ansible-playbook -i inventory.ini nomad_acl_bootstrap.yaml
 ```
 
 **Expected Duration**: ~10 minutes
 
 **What Gets Configured**:
 - Base system packages and configuration
-- TLS certificates for secure communication
 - CNI plugins for container networking (clients only)
 - Docker installation (clients only)
-- Nomad v1.11.1 installation
+- Nomad v2.0.0 installation
 - Nomad server cluster formation
 - Nomad client registration
 - Systemd service configuration
 
 ### 4. Access Your Cluster
 
-After deployment, access the cluster:
-
-```bash
-# Get Nomad UI URLs
-terraform output nomad_ui_urls
-
-# Get SSH commands
-terraform output ssh_commands
-
-# SSH to a server
-ssh -i ../../ansible/ssh_key.pem ubuntu@<server-ip>
-
-# Check cluster status
-nomad server members
-nomad node status
-```
+The Ansible playbooks output server and client addresses.
 
 **Nomad UI**: Navigate to `http://<server-ip>:4646` in your browser
+
+You may use the [Nomad CLI](https://developer.hashicorp.com/nomad/commands) to access Nomad from your workstation. Refer to the
+[Nomad install page](https://developer.hashicorp.com/nomad/install) 
+for how to install the CLI on your workstation. 
+
+Set the following environment variables in your terminal:
+
+- NOMAD_TOKEN: The Nomad bootstrap or management token `Secret ID` value.
+- NOMAD_ADDR: The publicly accessible Nomad URL.
+
+For example:
+
+```bash
+export NOMAD_TOKEN=<secret-id>
+export NOMAD_ADDR=http://18.118.202.224:4646
+```
+
 
 ## Configuration
 
@@ -208,7 +208,7 @@ Key variables in [`ansible/roles/nomad/defaults/main.yaml`](ansible/roles/nomad/
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `nomad_binary_version` | Nomad version to install | `1.11.1` |
+| `nomad_binary_version` | Nomad version to install | `2.0.0` |
 | `nomad_server_enabled` | Enable server mode | `false` |
 | `nomad_client_enabled` | Enable client mode | `false` |
 | `nomad_cloud_auto_join_enabled` | Enable AWS cloud auto-join | `false` |
@@ -257,13 +257,7 @@ The infrastructure creates IAM roles with the following permissions for cloud au
 - `ec2:DescribeTags`
 - `autoscaling:DescribeAutoScalingGroups`
 
-These permissions enable Nomad to automatically discover cluster members using AWS tags.
-
-**Note**: The IAM instance profile is created but not currently attached to EC2 instances. To enable cloud auto-join, add this to [`terraform/aws/compute.tf`](terraform/aws/compute.tf):
-
-```hcl
-iam_instance_profile = aws_iam_instance_profile.instance_profile.name
-```
+These permissions enable Nomad to automatically discover cluster members using AWS tags, should you opt to use that approach. By default, cloud auto join is not enabled.
 
 ## Project Structure
 
@@ -352,11 +346,11 @@ To enable Access Control Lists for production security:
 
 4. **Use the bootstrap token**:
    ```bash
-   export NOMAD_TOKEN=$(cat ansible/nomad_bootstrap_secret_id.txt)
+   export NOMAD_TOKEN=$(cat ansible/nomad-bootstrap-secret-id.txt)
    nomad status
    ```
 
-See [`ansible/BOOTSTRAP_ACL_EXAMPLE.md`](ansible/BOOTSTRAP_ACL_EXAMPLE.md) for detailed instructions.
+Refer to [`ansible/BOOTSTRAP_ACL_EXAMPLE.md`](ansible/BOOTSTRAP_ACL_EXAMPLE.md) for detailed instructions.
 
 ### Scale the Cluster
 
@@ -381,55 +375,12 @@ To upgrade to a newer Nomad version:
 
 ```bash
 # Update version in ansible/roles/nomad/defaults/main.yaml
-nomad_binary_version: "1.12.0"
+nomad_binary_version: "2.0.2"
 
 # Re-run Ansible playbooks
 ansible-playbook site.yaml
 ```
 
-### Deploy a Test Job
-
-After cluster is running, deploy a sample job:
-
-```bash
-# Create a simple job file
-cat > example.nomad <<EOF
-job "example" {
-  datacenters = ["dc1"]
-  type = "service"
-
-  group "web" {
-    count = 3
-
-    task "nginx" {
-      driver = "docker"
-
-      config {
-        image = "nginx:latest"
-        ports = ["http"]
-      }
-
-      resources {
-        cpu    = 100
-        memory = 128
-      }
-    }
-
-    network {
-      port "http" {
-        to = 80
-      }
-    }
-  }
-}
-EOF
-
-# Deploy the job
-nomad job run example.nomad
-
-# Check job status
-nomad job status example
-```
 
 ## Cleanup
 
