@@ -428,6 +428,80 @@ ansible-galaxy collection install community.crypto
 2. **ACLs**: Disabled by default (enable for production)
 3. **SSH Keys**: Private key stored in `ansible/ssh_key.pem` (keep secure)
 4. **Security Groups**: Configure `allowed_ssh_cidr` in Terraform to restrict access
+
+---
+
+## Consul Playbooks
+
+### consul_servers.yaml
+
+**Purpose**: Installs Docker and configures Consul v2.0.1 server agents on the `[servers]` group.
+
+**Target Hosts**: `servers`
+
+**Roles Applied**:
+- **common** — sets hostname, packages, NTP
+- **geerlingguy.docker** — installs Docker CE (required before Consul)
+- **helper** — installs `jq`, `net-tools`, `unzip`, `curl`
+- **consul** — installs Consul binary, writes config, starts systemd service
+
+**Key Vars**:
+```yaml
+consul_server_enabled: true
+consul_server_bootstrap_expect: "{{ groups['servers'] | length }}"
+consul_cloud_auto_join_enabled: true   # uses AutoJoinRole EC2 tag
+consul_ui_enabled: true
+```
+
+**Usage**:
+```bash
+ansible-playbook -i inventory.ini consul_servers.yaml
+```
+
+### consul_clients.yaml
+
+**Purpose**: Installs Docker and configures Consul v2.0.1 client agents on the `[clients]` group.
+
+**Target Hosts**: `clients`
+
+**Run after** `consul_servers.yaml` so servers are healthy before clients join.
+
+**Usage**:
+```bash
+ansible-playbook -i inventory.ini consul_clients.yaml
+```
+
+### Running both via site.yaml
+
+`site.yaml` now runs Consul before Nomad:
+1. `consul_servers.yaml`
+2. `consul_clients.yaml`
+3. `nomad_servers.yaml`
+4. `nomad_clients.yaml`
+
+### Verify Consul cluster
+
+```bash
+ssh -i ssh_key.pem ubuntu@<server-ip>
+consul members
+# Expect 3 servers (alive) + 2 clients (alive)
+```
+
+### Consul UI
+
+Available at `http://<server-public-ip>:8500/ui` after deployment.
+
+### Customise Consul
+
+| Variable | File | Description |
+|---|---|---|
+| `consul_binary_version` | `roles/consul/defaults/main.yaml` | Consul version to install |
+| `consul_acl_enabled` | playbook vars | Enable ACLs (off by default) |
+| `consul_tls_enabled` | playbook vars | Enable TLS (off by default) |
+| `consul_gossip_encryption_enabled` | playbook vars | Enable gossip encryption |
+| `consul_gossip_encryption_key` | playbook vars | Key from `consul keygen` |
+
+See [roles/consul/README.md](roles/consul/README.md) for the full variable reference.
 5. **IAM Permissions**: Minimal permissions for cloud auto-join
 
 ## Next Steps

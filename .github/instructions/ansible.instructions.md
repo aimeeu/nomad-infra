@@ -35,3 +35,11 @@ applyTo: "ansible/**"
   - `ansible/PLAYBOOKS-README.md`
   - `ansible/README.md`
   - `ansible/README-SECURITY-GROUP.md`
+
+## Agent skills
+
+Use the following Clause skills when creating Ansible content:
+
+- ansible-playbook
+- ansible-role-design
+- ansible-generator

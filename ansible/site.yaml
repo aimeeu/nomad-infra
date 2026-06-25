@@ -32,6 +32,12 @@
       ansible.builtin.debug:
         var: ping_result
 
+- name: Import Consul server playbook
+  ansible.builtin.import_playbook: consul_servers.yaml
+
+- name: Import Consul client playbook
+  ansible.builtin.import_playbook: consul_clients.yaml
+
 - name: Import Nomad server playbook
   ansible.builtin.import_playbook: nomad_servers.yaml
 
@@ -49,7 +55,7 @@
       ansible.builtin.debug:
         msg:
           - "=========================================="
-          - "Nomad Cluster Configuration Complete!"
+          - "Nomad + Consul Cluster Configuration Complete!"
           - "=========================================="
           - ""
           - "Servers configured: {{ groups['servers'] | length }}"
@@ -64,8 +70,12 @@
           - "Access Nomad UI at:"
           - "{% for host in groups['servers'] %}  http://{{ hostvars[host].ansible_host }}:4646{% endfor %}"
           - ""
+          - "Access Consul UI at:"
+          - "{% for host in groups['servers'] %}  http://{{ hostvars[host].ansible_host }}:8500/ui{% endfor %}"
+          - ""
           - "Next steps:"
           - "  1. Bootstrap ACLs: ansible-playbook nomad_acl_bootstrap.yaml"
-          - "  2. SSH to a server and verify cluster: nomad server members"
-          - "  3. Check nodes: nomad node status"
-          - "  4. Deploy a test job: nomad job run example.nomad"
+          - "  2. SSH to a server and verify Nomad cluster: nomad server members"
+          - "  3. Verify Consul cluster: consul members"
+          - "  4. Check nodes: nomad node status"
+          - "  5. Deploy a test job: nomad job run example.nomad"
