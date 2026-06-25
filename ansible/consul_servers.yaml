@@ -32,8 +32,8 @@
     consul_cloud_auto_join_enabled: true
     consul_cloud_auto_join_tag_key: "AutoJoinRole"
     consul_cloud_auto_join_tag_value: "server"
-    # ACL and TLS are disabled by default; enable for production
-    consul_acl_enabled: false
+    # ACL enabled; run consul_acl_bootstrap.yaml after first deploy to get the management token
+    consul_acl_enabled: true
     consul_tls_enabled: false
     consul_connect_enabled: false
 
