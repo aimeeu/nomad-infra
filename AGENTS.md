@@ -1,6 +1,6 @@
 # nomad-infra Agent Guidelines
 
-Terraform + Ansible project that deploys a production-ready HashiCorp Nomad cluster (3 servers + 2 clients) on AWS. See [README.md](README.md) and [DEPLOYMENT.md](DEPLOYMENT.md) for full context.
+Terraform + Ansible project that deploys a production-ready HashiCorp Nomad cluster (3 servers + 2 clients) **with a co-located Consul cluster** on AWS. See [README.md](README.md) and [DEPLOYMENT.md](DEPLOYMENT.md) for full context.
 
 ## Architecture
 
@@ -10,6 +10,10 @@ Terraform + Ansible project that deploys a production-ready HashiCorp Nomad clus
 | Cluster configuration | Ansible | `ansible/` |
 
 **Topology**: VPC (10.0.0.0/16) → public subnet → EC2 instances. Nodes discover each other via **AWS Cloud Auto-Join** (IAM-powered `ec2:DescribeInstances`, tag `AutoJoinRole`). TLS secures all cluster communication.
+
+**Service stack per node**:
+- Servers (×3): Consul server agent + Nomad server agent + Docker
+- Clients (×2): Consul client agent + Nomad client agent + Docker + CNI plugins
 
 ## Key Commands
 
@@ -24,13 +28,16 @@ terraform apply         # generates ansible/inventory.ini automatically
 cd ../../ansible
 ansible-galaxy install -r requirements.yaml
 
-# 3. Configure cluster
-ansible-playbook -i inventory.ini site.yaml          # servers + clients
-# or individually:
+# 3. Configure full cluster (Consul first, then Nomad)
+ansible-playbook -i inventory.ini site.yaml
+
+# or run layers individually (Consul must precede Nomad):
+ansible-playbook -i inventory.ini consul_servers.yaml
+ansible-playbook -i inventory.ini consul_clients.yaml
 ansible-playbook -i inventory.ini nomad_servers.yaml
 ansible-playbook -i inventory.ini nomad_clients.yaml
 
-# 4. Bootstrap ACLs (optional, post-cluster)
+# 4. Bootstrap Nomad ACLs (optional, post-cluster)
 ansible-playbook -i inventory.ini nomad_acl_bootstrap.yaml
 ```
 
@@ -47,7 +54,10 @@ ansible-playbook -i inventory.ini nomad_acl_bootstrap.yaml
 - TLS certificates are generated **on the Ansible control machine** by the `tls` role, stored in `ansible/.tls/`, then pushed to nodes via the `helper` role.
 - The external role `geerlingguy.docker` is managed via [requirements.yaml](ansible/requirements.yaml) — re-run `ansible-galaxy install` after any change.
 - Nomad config is templated via Jinja2 in `ansible/roles/nomad/templates/`. See [roles/nomad/README.md](ansible/roles/nomad/README.md).
-- Key Nomad version variable: `nomad_binary_version` in [roles/nomad/defaults/main.yaml](ansible/roles/nomad/defaults/main.yaml).
+- Consul config is templated via Jinja2 in `ansible/roles/consul/templates/`. See [roles/consul/README.md](ansible/roles/consul/README.md).
+- Key version variables: `nomad_binary_version` in [roles/nomad/defaults/main.yaml](ansible/roles/nomad/defaults/main.yaml), `consul_binary_version` in [roles/consul/defaults/main.yaml](ansible/roles/consul/defaults/main.yaml).
+- Server/client mode is toggled by role variables (`nomad_server_enabled`, `consul_server_enabled`) rather than separate role files.
+- All roles include `meta/argument_specs.yaml` for Ansible 2.11+ variable validation.
 
 ## Sensitive Files (git-ignored, never commit)
 
@@ -62,8 +72,9 @@ ansible-playbook -i inventory.ini nomad_acl_bootstrap.yaml
 ## Security Pitfalls
 
 - `allowed_ssh_cidr` defaults to `0.0.0.0/0` in [variables.tf](terraform/aws/variables.tf) — **restrict this for any non-local deployment**.
-- Port 4646 (Nomad UI) is open by default. See [README-SECURITY-GROUP.md](ansible/README-SECURITY-GROUP.md) for hardening guidance.
-- ACLs are **disabled** by default (`nomad_acl_enabled: false`). Enable for production environments.
+- Port 4646 (Nomad UI) and port 8500 (Consul UI) are open to `0.0.0.0/0` by default. See [README-SECURITY-GROUP.md](ansible/README-SECURITY-GROUP.md) for hardening guidance.
+- ACLs are **disabled** by default (`nomad_acl_enabled: false`, `consul_acl_enabled: false`). Enable for production environments.
+- `consul_client_addr` defaults to `0.0.0.0` — the Consul API is reachable on all interfaces. Restrict to `127.0.0.1` in production.
 
 ## Documentation Map
 
@@ -76,6 +87,7 @@ ansible-playbook -i inventory.ini nomad_acl_bootstrap.yaml
 | Security group hardening | [ansible/README-SECURITY-GROUP.md](ansible/README-SECURITY-GROUP.md) |
 | Ansible lint results | [ansible/ANSIBLE_LINT_RESULTS.md](ansible/ANSIBLE_LINT_RESULTS.md) |
 | Role: nomad | [ansible/roles/nomad/README.md](ansible/roles/nomad/README.md) |
+| Role: consul | [ansible/roles/consul/README.md](ansible/roles/consul/README.md) |
 | Role: tls | [ansible/roles/tls/README.md](ansible/roles/tls/README.md) |
 | Role: cni | [ansible/roles/cni/README.md](ansible/roles/cni/README.md) |
 | Role: common | [ansible/roles/common/README.md](ansible/roles/common/README.md) |
