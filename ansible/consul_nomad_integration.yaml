@@ -1,0 +1,124 @@
+---
+# Playbook: consul_nomad_integration.yaml
+#
+# Configures the Consul ACL resources for Nomad integration and then
+# updates the Nomad agent configuration on every node to enable the
+# consul block with workload identity support.
+#
+# Prerequisites (must complete successfully before running this playbook):
+#   1. consul_servers.yaml   — Consul servers deployed and healthy
+#   2. consul_clients.yaml   — Consul clients deployed and healthy
+#   3. consul_acl_bootstrap.yaml — Consul ACL bootstrapped
+#                                  (generates consul-bootstrap-secret-id.txt)
+#   4. nomad_servers.yaml    — Nomad servers deployed and running
+#   5. nomad_clients.yaml    — Nomad clients deployed and running
+#
+# What this playbook does:
+#   Play 1 — Runs the nomad_consul role on the first server:
+#     - Creates Consul ACL policies for Nomad agents (server + client)
+#     - Creates Consul ACL tokens for Nomad agents (server + client)
+#     - Saves token SecretIDs to the Ansible control machine
+#     - Creates the Consul JWT auth method (nomad-workloads) pointing at the
+#       Nomad JWKS endpoint
+#     - Creates Consul ACL binding rules for service and task workload identities
+#     - Creates the nomad-tasks-default Consul role for the Nomad default namespace
+#
+#   Play 2 — Reconfigures Nomad servers with the consul block:
+#     - Reads the Nomad server Consul token from the control machine
+#     - Writes an updated nomad.hcl with the consul block (token +
+#       service_identity + task_identity)
+#     - Restarts Nomad
+#
+#   Play 3 — Reconfigures Nomad clients with the consul block:
+#     - Reads the Nomad client Consul token from the control machine
+#     - Writes an updated nomad.hcl with the consul block (token only)
+#     - Restarts Nomad
+#
+# Usage:
+#   ansible-playbook -i inventory.ini consul_nomad_integration.yaml
+#
+# Output files (on control machine, mode 0600):
+#   nomad-consul-server-token-output.txt  — full token output for Nomad servers
+#   nomad-consul-server-secret-id.txt     — SecretID for Nomad server token
+#   nomad-consul-client-token-output.txt  — full token output for Nomad clients
+#   nomad-consul-client-secret-id.txt     — SecretID for Nomad client token
+
+# ── Play 1: Set up Consul ACL resources ──────────────────────────────────────
+
+- name: Configure Consul ACL for Nomad integration
+  hosts: servers
+  gather_facts: true
+
+  roles:
+  - role: nomad_consul
+
+# ── Play 2: Reconfigure Nomad servers with the consul block ──────────────────
+
+- name: Update Nomad server configuration with Consul integration
+  hosts: servers
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+  - name: Read Nomad server Consul SecretID from local file
+    become: false
+    ansible.builtin.command: >-
+      cat {{ playbook_dir }}/nomad-consul-server-secret-id.txt
+    changed_when: false
+    delegate_to: localhost
+    run_once: true
+    register: nomad_consul_server_secret_id_file
+
+  - name: Set Nomad server Consul token fact
+    ansible.builtin.set_fact:
+      nomad_consul_agent_token: "{{ nomad_consul_server_secret_id_file.stdout | trim }}"
+
+  vars:
+    nomad_server_enabled: true
+    nomad_server_bootstrap_expect: "{{ groups['servers'] | length }}"
+    nomad_client_enabled: false
+    nomad_cloud_auto_join_enabled: false
+    nomad_acl_enabled: true
+    nomad_log_level: "DEBUG"
+    nomad_enable_debug: true
+    nomad_tls_enabled: false
+    nomad_consul_integration_enabled: true
+    nomad_consul_address: "127.0.0.1:8500"
+
+  roles:
+  - role: nomad
+
+# ── Play 3: Reconfigure Nomad clients with the consul block ──────────────────
+
+- name: Update Nomad client configuration with Consul integration
+  hosts: clients
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+  - name: Read Nomad client Consul SecretID from local file
+    become: false
+    ansible.builtin.command: >-
+      cat {{ playbook_dir }}/nomad-consul-client-secret-id.txt
+    changed_when: false
+    delegate_to: localhost
+    run_once: true
+    register: nomad_consul_client_secret_id_file
+
+  - name: Set Nomad client Consul token fact
+    ansible.builtin.set_fact:
+      nomad_consul_agent_token: "{{ nomad_consul_client_secret_id_file.stdout | trim }}"
+
+  vars:
+    nomad_server_enabled: false
+    nomad_client_enabled: true
+    nomad_cloud_auto_join_enabled: false
+    nomad_acl_enabled: true
+    nomad_log_level: "DEBUG"
+    nomad_enable_debug: true
+    nomad_tls_enabled: false
+    nomad_consul_integration_enabled: true
+    nomad_consul_address: "127.0.0.1:8500"
+
+  roles:
+  - role: nomad

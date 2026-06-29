@@ -33,11 +33,9 @@ Key variables (see `defaults/main.yaml` for the full list and defaults):
 
 ## Inventory Groups
 
-This role expects:
-- `consul_servers` — hosts that run as Consul servers
-- `consul_clients` — hosts that run as Consul clients (joined to `consul_servers`)
-
-The playbooks in this repo map the Terraform-generated `[servers]` group to `consul_servers` and `[clients]` to `consul_clients`.
+This role targets the Terraform-generated inventory groups directly:
+- `[servers]` — hosts that run as Consul servers (`consul_server_enabled: true`)
+- `[clients]` — hosts that run as Consul clients (`consul_server_enabled: false`)
 
 ## TLS
 

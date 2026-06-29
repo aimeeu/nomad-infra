@@ -1,0 +1,8 @@
+---
+galaxy_info:
+  role_name: nomad
+  author: nomad-infra
+  description: Install and configure a Nomad agent (server or client).
+  min_ansible_version: "2.11"
+
+dependencies: []

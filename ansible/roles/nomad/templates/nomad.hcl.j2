@@ -78,3 +78,27 @@ acl {
   enabled = true
 }
 {% endif %}
+
+{% if nomad_consul_integration_enabled %}
+consul {
+  address = "{{ nomad_consul_address }}"
+  token   = "{{ nomad_consul_agent_token }}"
+
+{% if nomad_server_enabled %}
+  # Default workload identity for Nomad services registering in Consul.
+  # Nomad servers inject this identity into all jobs that use the Consul
+  # service provider, removing the need to define it per job.
+  service_identity {
+    aud = ["{{ nomad_consul_service_identity_aud }}"]
+    ttl = "{{ nomad_consul_service_identity_ttl }}"
+  }
+
+  # Default workload identity for Nomad tasks that access Consul data
+  # (e.g. via template blocks reading service addresses or KV values).
+  task_identity {
+    aud = ["{{ nomad_consul_task_identity_aud }}"]
+    ttl = "{{ nomad_consul_task_identity_ttl }}"
+  }
+{% endif %}
+}
+{% endif %}

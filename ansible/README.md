@@ -1,6 +1,6 @@
 # Ansible Configuration for Nomad Cluster
 
-This directory contains Ansible playbooks and roles to install and configure HashiCorp Nomad v2.0.0 on the infrastructure provisioned by Terraform.
+This directory contains Ansible playbooks and roles to install and configure HashiCorp Nomad v2.0.3 on the infrastructure provisioned by Terraform.
 
 **📖 [Complete Deployment Guide](../DEPLOYMENT.md)** - Step-by-step instructions for the full deployment process
 
@@ -47,9 +47,14 @@ ansible/
 ├── PLAYBOOKS-README.md             # Detailed playbook documentation
 ├── BOOTSTRAP_ACL_EXAMPLE.md        # ACL bootstrap guide
 ├── ANSIBLE_LINT_RESULTS.md         # Linting results
-├── nomad_acl_bootstrap.yaml        # ACL bootstrap playbook
-├── nomad_servers.yaml              # Server configuration playbook
-├── nomad_clients.yaml              # Client configuration playbook
+├── consul_servers.yaml             # Consul server configuration playbook
+├── consul_clients.yaml             # Consul client configuration playbook
+├── consul_acl_bootstrap.yaml       # Consul ACL bootstrap playbook
+├── consul_nomad_integration.yaml   # Consul-Nomad ACL integration playbook
+├── nomad_servers.yaml              # Nomad server configuration playbook
+├── nomad_clients.yaml              # Nomad client configuration playbook
+├── nomad_acl_bootstrap.yaml        # Nomad ACL bootstrap playbook
+├── dnsmasq.yaml                    # dnsmasq DNS forwarding playbook
 ├── .tls/                           # TLS certificates (auto-generated)
 │   ├── ca.pem                      # CA certificate
 │   ├── ca-key.pem                  # CA private key
@@ -57,31 +62,14 @@ ansible/
 │   └── client-*.pem                # Client certificates
 └── roles/
     ├── common/                     # Base system setup
-    │   ├── defaults/
-    │   ├── tasks/
-    │   └── README.md
     ├── cni/                        # CNI plugins installer
-    │   ├── defaults/
-    │   ├── tasks/
-    │   └── README.md
+    ├── consul/                     # Consul installation & config
+    ├── dnsmasq/                    # dnsmasq installation & config
     ├── hashicorp_release/          # HashiCorp binary installer
-    │   ├── defaults/
-    │   ├── tasks/
-    │   └── README.md
     ├── helper/                     # Utility role for common tasks
-    │   ├── defaults/
-    │   ├── tasks/
-    │   └── README.md
     ├── nomad/                      # Nomad installation & config
-    │   ├── defaults/
-    │   ├── handlers/
-    │   ├── tasks/
-    │   ├── templates/
-    │   └── README.md
+    ├── nomad_consul/               # Consul ACL setup for Nomad integration
     └── tls/                        # TLS certificate generation
-        ├── defaults/
-        ├── tasks/
-        └── README.md
 ```
 
 ## Playbooks
@@ -191,6 +179,60 @@ ansible-playbook nomad_acl_bootstrap.yaml
 
 See [`BOOTSTRAP_ACL_EXAMPLE.md`](BOOTSTRAP_ACL_EXAMPLE.md) for detailed instructions.
 
+---
+
+### consul_nomad_integration.yaml
+**Purpose**: Configures Consul ACL resources for Nomad integration using Workload Identities
+
+**What It Does**:
+- Creates Consul ACL policies for Nomad server and client agents
+- Creates Consul ACL tokens for Nomad agent operations
+- Creates a Consul JWT auth method (`nomad-workloads`) for workload identity validation
+- Creates Consul binding rules for service registration and task data access
+- Creates a Consul ACL role for Nomad tasks in the default namespace
+- Reconfigures Nomad agents with the `consul {}` block (token + workload identity)
+
+**Prerequisites**:
+- Consul ACL bootstrapped (`consul_acl_bootstrap.yaml` completed)
+- Nomad cluster deployed and running
+- `consul-bootstrap-secret-id.txt` present in the `ansible/` directory
+
+**Usage**:
+```bash
+ansible-playbook -i inventory.ini consul_nomad_integration.yaml
+```
+
+**Output Files** (on control machine, mode 0600):
+- `nomad-consul-server-token-output.txt` — full Consul token output for Nomad servers
+- `nomad-consul-server-secret-id.txt` — Consul token SecretID for Nomad servers
+- `nomad-consul-client-token-output.txt` — full Consul token output for Nomad clients
+- `nomad-consul-client-secret-id.txt` — Consul token SecretID for Nomad clients
+
+See [`roles/nomad_consul/README.md`](roles/nomad_consul/README.md) for architecture details.
+
+---
+
+### dnsmasq.yaml
+**Purpose**: Installs and configures dnsmasq for `.consul` DNS forwarding on all nodes
+
+**What It Does**:
+- Installs dnsmasq
+- Disables systemd-resolved stub listener so dnsmasq can occupy port 53
+- Configures `/etc/dnsmasq.d/10-consul` to forward `.consul` queries to `127.0.0.1:8600`
+- Updates `/etc/resolv.conf` to use `127.0.0.1` as the system resolver
+
+**Prerequisites**:
+- Consul agents running on all nodes
+
+**Usage**:
+```bash
+ansible-playbook -i inventory.ini dnsmasq.yaml
+```
+
+**When to Use**: After Consul agents are running. Enables `host consul.service.consul` and other `.consul` name resolution on every node.
+
+See [`roles/dnsmasq/README.md`](roles/dnsmasq/README.md) for details.
+
 ## Roles
 
 ### common
@@ -222,6 +264,37 @@ See [`BOOTSTRAP_ACL_EXAMPLE.md`](BOOTSTRAP_ACL_EXAMPLE.md) for detailed instruct
 **Why Needed**: Required for container networking in Nomad (bridge mode)
 
 **Documentation**: [`roles/cni/README.md`](roles/cni/README.md)
+
+---
+
+### consul
+**Purpose**: Consul agent installation and configuration
+
+**Features**:
+- Installs Consul 2.0.1 binary via `hashicorp_release` role
+- Supports server mode and client mode (toggled by `consul_server_enabled`)
+- Configures ACLs, TLS, gossip encryption, and Consul Connect (service mesh)
+- Creates and validates systemd service
+
+**Used By**: `consul_servers.yaml`, `consul_clients.yaml`, `consul_nomad_integration.yaml`
+
+**Documentation**: [`roles/consul/README.md`](roles/consul/README.md)
+
+---
+
+### dnsmasq
+**Purpose**: dnsmasq installation and Consul DNS forwarding
+
+**Features**:
+- Installs dnsmasq
+- Disables systemd-resolved stub listener so dnsmasq can bind to port 53
+- Forwards `.consul` domain queries to the local Consul agent (port 8600)
+- Configures upstream DNS servers (AWS VPC resolver by default)
+- Updates `/etc/resolv.conf`
+
+**Used By**: `dnsmasq.yaml`
+
+**Documentation**: [`roles/dnsmasq/README.md`](roles/dnsmasq/README.md)
 
 ---
 
@@ -282,20 +355,37 @@ ansible-galaxy install -r requirements.yaml
 ---
 
 ### nomad
-**Purpose**: Nomad-specific installation and configuration
+**Purpose**: Nomad agent installation and configuration
 
 **Features**:
-- Installs Nomad v1.11.1 by default
-- Creates configuration directories (`/etc/nomad.d`, `/opt/nomad/data`)
-- Generates configuration from Jinja2 templates
+- Installs Nomad v2.0.3 via `hashicorp_release` role
+- Creates configuration directories (`/etc/nomad.d`, `/opt/nomad/data`, `/opt/nomad/plugins`)
+- Generates `nomad.hcl` from Jinja2 templates
 - Sets up systemd service
-- Configures cloud auto-join for AWS
-- Supports both server and client modes
-- Handles ACL configuration
+- Supports both server and client modes (toggled by `nomad_server_enabled` / `nomad_client_enabled`)
+- Handles ACL, TLS, telemetry, and cloud auto-join configuration
+- Supports Consul integration via `consul {}` block when `nomad_consul_integration_enabled: true`
 
-**Used By**: Both server and client playbooks
+**Used By**: `nomad_servers.yaml`, `nomad_clients.yaml`, `consul_nomad_integration.yaml`
 
 **Documentation**: [`roles/nomad/README.md`](roles/nomad/README.md)
+
+---
+
+### nomad_consul
+**Purpose**: Configures Consul ACL resources for Nomad Workload Identity integration
+
+**Features**:
+- Creates Consul ACL policies for Nomad server and client agents
+- Creates Consul ACL tokens for Nomad agent operations
+- Creates Consul JWT auth method (`nomad-workloads`) pointing at Nomad's JWKS endpoint
+- Creates Consul binding rules for service workload identities and task workload identities
+- Creates Consul ACL role and policy for Nomad tasks
+- Guarded by a sentinel file — runs exactly once per cluster
+
+**Used By**: `consul_nomad_integration.yaml`
+
+**Documentation**: [`roles/nomad_consul/README.md`](roles/nomad_consul/README.md)
 
 ---
 
@@ -322,28 +412,27 @@ ansible-galaxy install -r requirements.yaml
 Located in [`roles/nomad/defaults/main.yaml`](roles/nomad/defaults/main.yaml):
 
 ```yaml
-# Binary configuration
-nomad_binary_version: "1.11.1"
+nomad_binary_version: "2.0.3"
 
-# Server configuration
 nomad_server_enabled: false
 nomad_server_bootstrap_expect: 3
 
-# Client configuration
 nomad_client_enabled: false
-nomad_client_servers: []
 
-# Cloud auto-join (AWS)
 nomad_cloud_auto_join_enabled: false
-nomad_cloud_auto_join_tag_key: "Role"
+nomad_cloud_auto_join_tag_key: "AutoJoinRole"
 nomad_cloud_auto_join_tag_value: "server"
 
-# ACL configuration
 nomad_acl_enabled: false
+nomad_tls_enabled: false
 
-# Logging
 nomad_log_level: "INFO"
 nomad_log_file: "/var/log/nomad.log"
+
+# Consul integration (set after running consul_nomad_integration.yaml)
+nomad_consul_integration_enabled: false
+nomad_consul_agent_token: ""
+nomad_consul_address: "127.0.0.1:8500"
 ```
 
 ### Common Variables

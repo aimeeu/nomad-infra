@@ -38,14 +38,26 @@
 - name: Import Consul client playbook
   ansible.builtin.import_playbook: consul_clients.yaml
 
+# Bootstrap Consul ACL (requires consul_acl_enabled: true in consul role vars)
+- name: Bootstrap Consul ACL
+  ansible.builtin.import_playbook: consul_acl_bootstrap.yaml
+
+# Run after Consul agents are running on all nodes:
+- name: Configure dnsmasq for Consul DNS forwarding
+  ansible.builtin.import_playbook: dnsmasq.yaml
+
 - name: Import Nomad server playbook
   ansible.builtin.import_playbook: nomad_servers.yaml
 
 - name: Import Nomad client playbook
   ansible.builtin.import_playbook: nomad_clients.yaml
 
-#- name: Bootstrap Nomad ACL
-  #ansible.builtin.import_playbook: nomad_acl_bootstrap.yaml
+- name: Bootstrap Nomad ACL
+  ansible.builtin.import_playbook: nomad_acl_bootstrap.yaml
+
+# Run after Consul ACL bootstrap and Nomad are deployed:
+- name: Consul-Nomad integration (ACL policies, tokens, workload identities)
+  ansible.builtin.import_playbook: consul_nomad_integration.yaml
 
 - name: Cluster status summary
   hosts: localhost

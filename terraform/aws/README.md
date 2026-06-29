@@ -1,6 +1,6 @@
 # Terraform AWS Infrastructure for Nomad + Consul
 
-This directory contains Terraform configuration files to provision AWS infrastructure for a co-located HashiCorp Consul v2.0.1 and Nomad v2.0.0 cluster.
+This directory contains Terraform configuration files to provision AWS infrastructure for a co-located HashiCorp Consul v2.0.1 and Nomad v2.0.3 cluster.
 
 ## What Gets Created
 

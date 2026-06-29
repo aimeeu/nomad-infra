@@ -2,7 +2,7 @@
 
 ## Description
 
-The nomad role installs and configures HashiCorp Nomad v2.0.0 on both server and client nodes. It handles binary installation, configuration file generation, systemd service setup, and initial service startup.
+The nomad role installs and configures HashiCorp Nomad v2.0.3 on both server and client nodes. It handles binary installation, configuration file generation, systemd service setup, and initial service startup.
 
 ## Features
 
@@ -13,7 +13,8 @@ The nomad role installs and configures HashiCorp Nomad v2.0.0 on both server and
 - Supports both server and client modes
 - Configures cloud auto-join for AWS
 - Enables telemetry and logging
-- Handles ACL configuration
+- Handles ACL and TLS configuration
+- Supports Consul integration via `consul {}` block (Workload Identity, Nomad 1.7+)
 
 ## Variables
 
@@ -21,7 +22,7 @@ The nomad role installs and configures HashiCorp Nomad v2.0.0 on both server and
 |----------|------|---------|-------------|
 | `nomad_user` | string | `root` | User to run Nomad service |
 | `nomad_group` | string | `root` | Group to run Nomad service |
-| `nomad_binary_version` | string | `2.0.0` | Nomad version to install |
+| `nomad_binary_version` | string | `2.0.3` | Nomad version to install |
 | `nomad_config_dir` | string | `/etc/nomad.d` | Configuration directory |
 | `nomad_data_dir` | string | `/opt/nomad/data` | Data directory |
 | `nomad_plugin_dir` | string | `/opt/nomad/plugins` | Plugin directory |
@@ -31,6 +32,7 @@ The nomad role installs and configures HashiCorp Nomad v2.0.0 on both server and
 | `nomad_client_enabled` | bool | `false` | Enable client mode |
 | `nomad_client_servers` | list | `[]` | List of server addresses |
 | `nomad_acl_enabled` | bool | `false` | Enable ACL system |
+| `nomad_tls_enabled` | bool | `false` | Enable TLS |
 | `nomad_telemetry_enabled` | bool | `true` | Enable telemetry |
 | `nomad_telemetry_prometheus_metrics` | bool | `true` | Enable Prometheus metrics |
 | `nomad_log_level` | string | `INFO` | Logging level |
@@ -38,8 +40,15 @@ The nomad role installs and configures HashiCorp Nomad v2.0.0 on both server and
 | `nomad_log_include_location` | bool | `false` | Include source location in logs |
 | `nomad_enable_debug` | bool | `false` | Enable debug mode |
 | `nomad_cloud_auto_join_enabled` | bool | `false` | Enable AWS cloud auto-join |
-| `nomad_cloud_auto_join_tag_key` | string | `Role` | AWS tag key for auto-join |
+| `nomad_cloud_auto_join_tag_key` | string | `AutoJoinRole` | AWS tag key for auto-join |
 | `nomad_cloud_auto_join_tag_value` | string | `server` | AWS tag value for auto-join |
+| `nomad_consul_integration_enabled` | bool | `false` | Enable Consul integration (`consul {}` block) |
+| `nomad_consul_address` | string | `127.0.0.1:8500` | Consul agent address |
+| `nomad_consul_agent_token` | string | `""` | Consul ACL token for Nomad agent operations |
+| `nomad_consul_service_identity_aud` | string | `consul.io` | Audience for service workload identities |
+| `nomad_consul_service_identity_ttl` | string | `1h` | TTL for service workload identity tokens |
+| `nomad_consul_task_identity_aud` | string | `consul.io` | Audience for task workload identities |
+| `nomad_consul_task_identity_ttl` | string | `1h` | TTL for task workload identity tokens |
 
 ## Directory Structure
 
@@ -55,7 +64,7 @@ The role creates the following directories:
 
 ### In Playbooks
 
-**Server Playbook** (`playbooks/nomad_servers.yaml`):
+**Server Playbook** (`nomad_servers.yaml`):
 ```yaml
 - role: nomad
   vars:
@@ -63,19 +72,27 @@ The role creates the following directories:
     nomad_server_bootstrap_expect: "{{ groups['servers'] | length }}"
     nomad_client_enabled: false
     nomad_cloud_auto_join_enabled: true
-    nomad_cloud_auto_join_tag_key: "Role"
+    nomad_cloud_auto_join_tag_key: "AutoJoinRole"
     nomad_cloud_auto_join_tag_value: "server"
 ```
 
-**Client Playbook** (`playbooks/nomad_clients.yaml`):
+**Client Playbook** (`nomad_clients.yaml`):
 ```yaml
 - role: nomad
   vars:
     nomad_server_enabled: false
     nomad_client_enabled: true
     nomad_cloud_auto_join_enabled: true
-    nomad_cloud_auto_join_tag_key: "Role"
+    nomad_cloud_auto_join_tag_key: "AutoJoinRole"
     nomad_cloud_auto_join_tag_value: "server"
+```
+
+**With Consul Integration** (via `consul_nomad_integration.yaml` pre_tasks):
+```yaml
+- role: nomad
+  vars:
+    nomad_consul_integration_enabled: true
+    nomad_consul_agent_token: "{{ lookup('file', 'nomad-consul-server-secret-id.txt') }}"
 ```
 
 ## Configuration Templates
@@ -107,7 +124,7 @@ When enabled, Nomad automatically discovers cluster members using AWS tags:
 
 ```yaml
 nomad_cloud_auto_join_enabled: true
-nomad_cloud_auto_join_tag_key: "Role"
+nomad_cloud_auto_join_tag_key: "AutoJoinRole"
 nomad_cloud_auto_join_tag_value: "server"
 ```
 
