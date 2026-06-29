@@ -1,443 +1,423 @@
-# Nomad Infrastructure Deployment Guide
+# Nomad + Consul Cluster Deployment Guide
 
-This guide provides step-by-step instructions for deploying a complete Nomad cluster on AWS using Terraform and Ansible.
+Step-by-step instructions for deploying the co-located HashiCorp Consul v2.0.1 and Nomad v2.0.0 cluster on AWS.
 
 ## Overview
 
-The deployment process consists of two main phases:
-1. **Infrastructure Provisioning** (Terraform) - Creates AWS resources
-2. **Configuration Management** (Ansible) - Installs and configures Nomad
+The deployment has two phases:
 
-**Total Deployment Time**: ~15-20 minutes
+1. **Terraform** — Provisions AWS infrastructure (~5 minutes)
+2. **Ansible** — Installs and configures Consul and Nomad (~10–15 minutes)
+
+```mermaid
+flowchart TD
+    A([Start]) --> B[Edit terraform.tfvars]
+    B --> C[terraform init]
+    C --> D[terraform plan]
+    D --> E[terraform apply]
+    E --> F[/ansible/inventory.ini generated/]
+    F --> G[ansible-galaxy install -r requirements.yaml]
+    G --> H{Deploy which services?}
+
+    H -->|Full cluster| I[ansible-playbook site.yaml]
+    H -->|Consul only| CS[consul_servers.yaml]
+    H -->|Nomad only| NS[nomad_servers.yaml]
+
+    CS --> CC[consul_clients.yaml]
+    NS --> NC[nomad_clients.yaml]
+    I --> DONE
+
+    CC --> ACLS{Bootstrap ACLs?}
+    NC --> ACLS
+    DONE --> ACLS
+
+    ACLS -->|Consul| CACL[consul_acl_bootstrap.yaml]
+    ACLS -->|Nomad| NACL[nomad_acl_bootstrap.yaml]
+    ACLS -->|Skip| VERIFY
+
+    CACL --> VERIFY([Verify cluster])
+    NACL --> VERIFY
+```
 
 ## Prerequisites
 
-Before starting, ensure you have:
+| Tool | Minimum version | Verify |
+|------|----------------|--------|
+| Terraform | 1.0 | `terraform version` |
+| Ansible | 2.14 | `ansible --version` |
+| AWS CLI | any | `aws sts get-caller-identity` |
 
-### Required Tools
-
-- **Terraform** >= 1.0
-  ```bash
-  terraform version
-  ```
-
-- **Ansible** >= 2.9
-  ```bash
-  ansible --version
-  ```
-
-- **AWS CLI** configured
-  ```bash
-  aws sts get-caller-identity
-  ```
-
-- **Python 3** with pip
-  ```bash
-  python3 --version
-  ```
-
-### AWS Requirements
-
-- AWS account with appropriate permissions
-- AWS credentials configured (see [AWS Configuration](#aws-configuration))
-- Sufficient EC2 instance limits in target region
-
-### Install Ansible Dependencies
+Install Ansible Galaxy roles before running any playbook:
 
 ```bash
-# Install required Ansible collections and roles
 cd ansible
 ansible-galaxy install -r requirements.yaml
 ```
 
-## AWS Configuration
-
-Choose one of the following methods to configure AWS credentials:
-
-### Option 1: AWS CLI (Recommended)
+## AWS Credentials
 
 ```bash
+# Option 1: AWS CLI
 aws configure
-```
 
-Enter your:
-- AWS Access Key ID
-- AWS Secret Access Key
-- Default region (e.g., us-east-2)
-- Default output format (json)
-
-### Option 2: Environment Variables
-
-```bash
-export AWS_ACCESS_KEY_ID="your-access-key"
-export AWS_SECRET_ACCESS_KEY="your-secret-key"
+# Option 2: Environment variables
+export AWS_ACCESS_KEY_ID="..."
+export AWS_SECRET_ACCESS_KEY="..."
 export AWS_DEFAULT_REGION="us-east-2"
-```
 
-### Option 3: AWS Profile
-
-```bash
+# Option 3: Named profile
 export AWS_PROFILE="your-profile-name"
-```
 
-### Verify Configuration
-
-```bash
+# Verify
 aws sts get-caller-identity
 ```
 
-Expected output:
-```json
-{
-    "UserId": "AIDAXXXXXXXXXXXXXXXXX",
-    "Account": "123456789012",
-    "Arn": "arn:aws:iam::123456789012:user/your-username"
-}
-```
+---
 
-## Phase 1: Infrastructure Provisioning with Terraform
+## Phase 1: Infrastructure Provisioning (Terraform)
 
-### Step 1: Navigate to Terraform Directory
+### Step 1: Configure variables
 
 ```bash
 cd terraform/aws
-```
-
-### Step 2: Customize Variables (Optional)
-
-Copy the example variables file:
-
-```bash
 cp terraform.tfvars.example terraform.tfvars
 ```
 
-Edit `terraform.tfvars` to customize your deployment:
+Edit `terraform.tfvars`:
 
 ```hcl
-# AWS Configuration
-aws_region       = "us-east-2"
-project_name     = "nomad-consul"
-owner            = "your-name"
-environment      = "dev"
+aws_region           = "us-east-2"
+project_name         = "nomad-consul"
+owner                = "your-name"
+environment          = "dev"
 
-# Network Configuration
-vpc_cidr         = "10.0.0.0/16"
-subnet_cidr      = "10.0.1.0/24"
+vpc_cidr             = "10.0.0.0/16"
+subnet_cidr          = "10.0.1.0/24"
 
-# Security Configuration
-allowed_ssh_cidr = "YOUR_IP/32"  # ⚠️ IMPORTANT: Restrict to your IP
+# ⚠️ IMPORTANT: restrict to your IP
+allowed_ssh_cidr     = "YOUR_IP/32"
 
-# Cluster Configuration
-server_count     = 3  # Recommended: 3, 5, or 7 (odd numbers)
-client_count     = 2  # Scale as needed
-
-# Instance Configuration
-server_instance_type = "t3.medium"  # 2 vCPU, 4 GB RAM
-client_instance_type = "t3.medium"  # 2 vCPU, 4 GB RAM
+server_count         = 3   # Use odd numbers: 3, 5, or 7
+client_count         = 2
+server_instance_type = "t3.medium"
+client_instance_type = "t3.medium"
 ```
 
-**Security Note**: Always restrict `allowed_ssh_cidr` to your specific IP address or network range.
-
-### Step 3: Initialize Terraform
+### Step 2: Initialize Terraform
 
 ```bash
 terraform init
 ```
 
-**Expected Output**:
-```
-Initializing the backend...
-Initializing provider plugins...
-- Finding hashicorp/aws versions matching "~> 5.0"...
-- Installing hashicorp/aws v5.x.x...
-Terraform has been successfully initialized!
-```
+Downloads the AWS, Local, Null, and TLS providers.
 
-**What This Does**:
-- Downloads required providers (AWS, Local, Null, TLS)
-- Initializes backend (local by default)
-- Prepares working directory
-
-### Step 4: Review the Execution Plan
+### Step 3: Review the execution plan
 
 ```bash
 terraform plan
 ```
 
-**What to Review**:
-- Number of resources to be created (~15-20 resources)
-- Instance types and counts
-- Network configuration
-- Security group rules
+Expect ~18 resources to be created. Review instance types, counts, and security group rules before proceeding.
 
-**Expected Resource Count**: 
-```
-Plan: 18 to add, 0 to change, 0 to destroy.
-```
-
-### Step 5: Apply the Configuration
+### Step 4: Apply
 
 ```bash
 terraform apply
 ```
 
-**Confirmation**: Type `yes` when prompted
+Type `yes` when prompted. Duration: ~5 minutes.
 
-**Duration**: ~5 minutes
+**What Terraform creates:**
 
-**What Gets Created**:
-- ✓ VPC (10.0.0.0/16)
-- ✓ Public subnet (10.0.1.0/24)
-- ✓ Internet gateway
-- ✓ Route table
-- ✓ Security group with firewall rules
-- ✓ 3 server EC2 instances (t3.medium, 50GB gp3)
-- ✓ 2 client EC2 instances (t3.medium, 50GB gp3)
-- ✓ IAM role and instance profile
-- ✓ SSH key pair
-- ✓ `../../ansible/ssh_key.pem` (private key)
-- ✓ `../../ansible/ssh_key.pub` (public key)
-- ✓ `../../ansible/inventory.ini` (Ansible inventory)
+| Resource | Details |
+|----------|---------|
+| VPC | `10.0.0.0/16`, DNS enabled |
+| Public subnet | `10.0.1.0/24`, auto-assign public IPs |
+| Internet gateway | Attached to VPC |
+| Route table | Default route `0.0.0.0/0` → internet gateway |
+| Security group | Ports 22, 8500, 4646, all-internal |
+| Server EC2 instances (×3) | Ubuntu 24.04, t3.medium, 50 GB gp3, tagged `AutoJoinRole=server` |
+| Client EC2 instances (×2) | Ubuntu 24.04, t3.medium, 50 GB gp3, tagged `AutoJoinRole=client` |
+| IAM instance profile | `ec2:DescribeInstances` for Cloud Auto-Join |
+| SSH key pair | Written to `ansible/ssh_key.pem` (mode 0600) |
+| Ansible inventory | Written to `ansible/inventory.ini` |
 
-### Step 6: View Outputs
+### Step 5: Review Terraform outputs
 
 ```bash
-# View all outputs
 terraform output
-
-# View specific outputs
 terraform output nomad_ui_urls
 terraform output ssh_commands
-terraform output server_public_ips
 ```
 
-**Save Important Information**:
-```bash
-# Save SSH commands
-terraform output -raw ssh_instructions > ../../ssh_commands.txt
-
-# Save Nomad UI URLs
-terraform output -json nomad_ui_urls > ../../nomad_urls.json
-```
-
-### Step 7: Verify Infrastructure
-
-```bash
-# Check instances are running
-aws ec2 describe-instances \
-  --filters "Name=tag:Project,Values=nomad-consul" \
-  --query 'Reservations[*].Instances[*].[InstanceId,State.Name,PublicIpAddress]' \
-  --output table
-
-# Test SSH connectivity
-ssh -i ../../ansible/ssh_key.pem ubuntu@$(terraform output -raw server_public_ips | jq -r '.[0]')
-```
-
-**Expected**: You should be able to SSH into the server successfully.
-
-## Phase 2: Configuration Management with Ansible
-
-### Step 1: Navigate to Ansible Directory
+### Step 6: Verify SSH connectivity
 
 ```bash
 cd ../../ansible
-```
-
-### Step 2: Verify Inventory File
-
-The inventory file was automatically generated by Terraform:
-
-```bash
-cat inventory.ini
-```
-
-**Expected Content**:
-```ini
-[servers]
-nomad-consul-server-1 ansible_host=54.123.45.67 private_ip=10.0.1.10
-nomad-consul-server-2 ansible_host=54.123.45.68 private_ip=10.0.1.11
-nomad-consul-server-3 ansible_host=54.123.45.69 private_ip=10.0.1.12
-
-[clients]
-nomad-consul-client-1 ansible_host=54.123.45.70 private_ip=10.0.1.20
-nomad-consul-client-2 ansible_host=54.123.45.71 private_ip=10.0.1.21
-
-[all:vars]
-ansible_user=ubuntu
-ansible_ssh_private_key_file=ssh_key.pem
-ansible_python_interpreter=/usr/bin/python3
-```
-
-### Step 3: Test Ansible Connectivity
-
-```bash
 ansible all -m ping
 ```
 
-**Expected Output**:
-```
-nomad-consul-server-1 | SUCCESS => {
-    "changed": false,
-    "ping": "pong"
-}
-nomad-consul-server-2 | SUCCESS => {
-    "changed": false,
-    "ping": "pong"
-}
-...
-```
+Expected: `pong` from all 5 hosts. If connections fail:
 
-**If Connection Fails**:
 ```bash
-# Check SSH key permissions
 chmod 600 ssh_key.pem
-
-# Test SSH manually
-ssh -i ssh_key.pem ubuntu@<server-ip>
-
-# Use verbose mode
 ansible all -m ping -vvv
 ```
 
-### Step 4: Install Required Ansible Dependencies
+---
+
+## Phase 2: Cluster Configuration (Ansible)
+
+All Ansible commands are run from the `ansible/` directory with `-i inventory.ini`.
 
 ```bash
-# Install Ansible collections
-ansible-galaxy collection install community.crypto ansible.posix
-
-# Install external roles
-ansible-galaxy install -r requirements.yaml
+cd ansible
 ```
 
-**Expected Output**:
-```
-Starting galaxy collection install process
-Process install dependency map
-Starting collection install process
-Installing 'community.crypto:2.x.x' to '~/.ansible/collections/ansible_collections/community/crypto'
-Installing 'ansible.posix:1.x.x' to '~/.ansible/collections/ansible_collections/ansible/posix'
-
-Starting galaxy role install process
-- downloading role 'docker', owned by geerlingguy
-- extracting geerlingguy.docker to ~/.ansible/roles/geerlingguy.docker
-```
-
-### Step 5: Run the Main Playbook
+### Option A: Full cluster — Consul + Nomad in one run (recommended)
 
 ```bash
-ansible-playbook site.yaml
+ansible-playbook -i inventory.ini site.yaml
 ```
 
-**Duration**: ~10 minutes
+`site.yaml` executes in this order:
 
-**What This Does**:
+| Step | Playbook | Hosts | What it does |
+|------|----------|-------|--------------|
+| 1 | `consul_servers.yaml` | `[servers]` | Installs Consul 2.0.1 in server mode, enables Cloud Auto-Join |
+| 2 | `consul_clients.yaml` | `[clients]` | Installs Consul 2.0.1 in client mode, joins the server cluster |
+| 3 | `nomad_servers.yaml` | `[servers]` | Installs Nomad 2.0.0 in server mode, static retry_join |
+| 4 | `nomad_clients.yaml` | `[clients]` | Installs Nomad 2.0.0 in client mode, installs CNI + Docker |
 
-#### On All Nodes:
-1. ✓ Installs base system packages (jq, net-tools, ntp, unzip, curl, wget)
-2. ✓ Configures NTP for time synchronization
-3. ✓ Sets hostnames based on inventory
+Duration: ~10–15 minutes.
 
-#### On Servers:
-4. ✓ Generates TLS certificates (CA and server certificates)
-5. ✓ Distributes TLS certificates to `/etc/nomad.d/.tls/`
-6. ✓ Installs Nomad v2.0.0
-7. ✓ Configures Nomad in server mode
-8. ✓ Enables cloud auto-join for AWS
-9. ✓ Sets up systemd service
-10. ✓ Starts Nomad service
+---
 
-#### On Clients:
-11. ✓ Generates TLS certificates (CA and client certificates)
-12. ✓ Installs CNI plugins v1.9.0 (Ubuntu only)
-13. ✓ Installs Docker CE
-14. ✓ Configures bridge kernel module
-15. ✓ Distributes TLS certificates
-16. ✓ Installs Nomad v2.0.0
-17. ✓ Configures Nomad in client mode
-18. ✓ Enables Docker driver
-19. ✓ Enables cloud auto-join to find servers
-20. ✓ Sets up systemd service
-21. ✓ Starts Nomad service
+### Option B: Consul layer only
 
-**Expected Final Output**:
-```
-PLAY RECAP *********************************************************************
-nomad-consul-server-1      : ok=25   changed=15   unreachable=0    failed=0
-nomad-consul-server-2      : ok=25   changed=15   unreachable=0    failed=0
-nomad-consul-server-3      : ok=25   changed=15   unreachable=0    failed=0
-nomad-consul-client-1      : ok=30   changed=20   unreachable=0    failed=0
-nomad-consul-client-2      : ok=30   changed=20   unreachable=0    failed=0
-```
+Run `consul_servers.yaml` before `consul_clients.yaml`. Clients join the server cluster at startup.
 
-### Step 6: Verify Nomad Installation
-
-#### Check Service Status
+#### Install and configure Consul servers
 
 ```bash
-# Check Nomad service on all hosts
-ansible all -b -m systemd -a "name=nomad state=status"
+ansible-playbook -i inventory.ini consul_servers.yaml
 ```
 
-#### Verify Cluster Formation
+Installs on each **server** node (in role order):
 
-SSH to a server and check cluster status:
+1. `common` — sets hostname, installs base packages
+2. `geerlingguy.docker` — installs Docker CE, adds `ubuntu` user to docker group
+3. `helper` — installs apt packages: jq, net-tools, unzip, nano, curl
+4. `consul` — installs Consul 2.0.1, writes `/etc/consul.d/consul.hcl`, creates systemd unit, starts service
+
+Key configuration values applied by this playbook:
+
+| Setting | Value |
+|---------|-------|
+| Mode | Server |
+| `bootstrap_expect` | `{{ groups['servers'] \| length }}` |
+| Datacenter | `dc1` |
+| Cloud Auto-Join tag | `AutoJoinRole=server` |
+| ACLs | Enabled |
+| TLS | Disabled (set `consul_tls_enabled: true` to enable) |
+
+Post-task: waits for Consul HTTP API on `127.0.0.1:8500`, then prints the UI URL.
+
+#### Install and configure Consul clients
 
 ```bash
-# SSH to first server
-ssh -i ssh_key.pem ubuntu@$(cd ../terraform/aws && terraform output -raw server_public_ips | jq -r '.[0]')
+ansible-playbook -i inventory.ini consul_clients.yaml
+```
 
-# Check server members
+Installs on each **client** node (same role stack as servers):
+
+1. `common`
+2. `geerlingguy.docker`
+3. `helper`
+4. `consul` — client mode, Cloud Auto-Join finds servers via `AutoJoinRole=server` tag
+
+Key configuration values:
+
+| Setting | Value |
+|---------|-------|
+| Mode | Client |
+| Cloud Auto-Join tag | `AutoJoinRole=server` |
+| ACLs | Disabled on clients by default |
+| TLS | Disabled |
+
+---
+
+### Option C: Nomad layer only
+
+Run after the Consul layer is up. Run `nomad_servers.yaml` before `nomad_clients.yaml`.
+
+#### Install and configure Nomad servers
+
+```bash
+ansible-playbook -i inventory.ini nomad_servers.yaml
+```
+
+Installs on each **server** node (in role order):
+
+1. `common` — sets hostname, installs base packages
+2. `tls` — generates self-signed TLS certificates on the control machine (only when `nomad_tls_enabled: true`)
+3. `helper` — installs build-essential, git, jq, net-tools, unzip, nano; copies TLS certs to `/etc/nomad.d/.tls/`
+4. `nomad` — installs Nomad 2.0.0, writes `/etc/nomad.d/nomad.hcl`, creates systemd unit, starts service
+
+Key configuration values applied by this playbook:
+
+| Setting | Value |
+|---------|-------|
+| Mode | Server |
+| `bootstrap_expect` | `{{ groups['servers'] \| length }}` |
+| `server_join.retry_join` | Static list of server private IPs from `[servers]` inventory group |
+| Cloud Auto-Join | Disabled (static join used instead) |
+| ACLs | Enabled |
+| TLS | Disabled (set `nomad_tls_enabled: true` to enable) |
+| Log level | DEBUG |
+
+Post-task: waits for Nomad HTTP API on port 4646.
+
+#### Install and configure Nomad clients
+
+```bash
+ansible-playbook -i inventory.ini nomad_clients.yaml
+```
+
+Installs on each **client** node (in role order):
+
+1. `common`
+2. `cni` — installs CNI plugins (Ubuntu only)
+3. `geerlingguy.docker` — installs Docker CE
+4. `tls` — generates TLS certs (only when `nomad_tls_enabled: true`)
+5. `helper` — installs packages; loads `bridge` kernel module; copies TLS certs
+6. `nomad` — installs Nomad 2.0.0 in client mode
+
+Key configuration values:
+
+| Setting | Value |
+|---------|-------|
+| Mode | Client |
+| `server_join.retry_join` | Static list of server private IPs from `[servers]` inventory group |
+| Cloud Auto-Join | Disabled |
+| ACLs | Enabled |
+| TLS | Disabled |
+| Log level | DEBUG |
+
+Post-task: waits for Nomad HTTP API on port 4646.
+
+---
+
+## Phase 3: ACL Bootstrap (Optional)
+
+Both Consul servers and all Nomad nodes have ACLs enabled by default in their playbooks. The bootstrap must be run **once**, after the cluster is first formed.
+
+### Consul ACL bootstrap
+
+```bash
+ansible-playbook -i inventory.ini consul_acl_bootstrap.yaml
+```
+
+Targets `servers[0]` (first server only). Calls `consul acl bootstrap`, saves the management token locally (mode 0600), and exits cleanly on re-runs.
+
+**Output files** (on the Ansible control machine):
+
+| File | Contents |
+|------|----------|
+| `ansible/consul-bootstrap-token-output.txt` | Full bootstrap output + usage notes |
+| `ansible/consul-bootstrap-secret-id.txt` | SecretID only, for scripting |
+
+**Use the token:**
+
+```bash
+export CONSUL_HTTP_TOKEN=$(cat ansible/consul-bootstrap-secret-id.txt)
+consul members
+consul acl token read -self
+```
+
+### Nomad ACL bootstrap
+
+```bash
+ansible-playbook -i inventory.ini nomad_acl_bootstrap.yaml
+```
+
+Targets `servers[0]`. Calls `nomad acl bootstrap`, saves the management token locally (mode 0600), and exits cleanly on re-runs.
+
+**Output files** (on the Ansible control machine):
+
+| File | Contents |
+|------|----------|
+| `ansible/nomad-bootstrap-token-output.txt` | Full bootstrap output + usage notes |
+| `ansible/nomad-bootstrap-secret-id.txt` | SecretID only, for scripting |
+
+**Use the token:**
+
+```bash
+export NOMAD_TOKEN=$(cat ansible/nomad-bootstrap-secret-id.txt)
 nomad server members
-
-# Expected output:
-# Name                      Address      Port  Status  Leader  Raft Version  Build  Datacenter  Region
-# nomad-consul-server-1.dc1  10.0.1.10    4648  alive   true    3             2.0.0  dc1         global
-# nomad-consul-server-2.dc1  10.0.1.11    4648  alive   false   3             2.0.0  dc1         global
-# nomad-consul-server-3.dc1  10.0.1.12    4648  alive   false   3             2.0.0  dc1         global
-
-# Check client nodes
-nomad node status
-
-# Expected output:
-# ID        Node Class   DC   Drain  Eligibility  Status
-# abc123    <none>       dc1  false  eligible     ready
-# def456    <none>       dc1  false  eligible     ready
-
-# Check Nomad version
-nomad version
-
-# Expected output:
-# Nomad v2.0.0
+nomad acl token self
 ```
+
+---
 
 ## Post-Deployment Verification
 
-### 1. Access Nomad UI
-
-Open your browser and navigate to any server's IP on port 4646:
-
-```
-http://<server-ip>:4646
-```
-
-**What You Should See**:
-- Nomad dashboard
-- 3 servers in the cluster
-- 2 client nodes ready
-- No jobs running (yet)
-
-### 2. Deploy a Test Job
-
-Create a simple test job:
+SSH to a server to run the verification commands:
 
 ```bash
-cat > example.nomad <<EOF
+ssh -i ansible/ssh_key.pem ubuntu@<server-public-ip>
+```
+
+### Verify Consul
+
+```bash
+# Should show 3 servers + 2 clients
+consul members
+
+# Expected output:
+# Node                        Address          Status  Type    Build   Protocol  DC   Partition  Segment
+# nomad-consul-server-1  10.0.1.x:8301   alive   server  2.0.1   2         dc1  default    <all>
+# nomad-consul-server-2  10.0.1.y:8301   alive   server  2.0.1   2         dc1  default    <all>
+# nomad-consul-server-3  10.0.1.z:8301   alive   server  2.0.1   2         dc1  default    <all>
+# nomad-consul-client-1  10.0.1.a:8301   alive   client  2.0.1   2         dc1  default    <default>
+# nomad-consul-client-2  10.0.1.b:8301   alive   client  2.0.1   2         dc1  default    <default>
+
+consul info | grep -E "server|leader|peers"
+```
+
+### Verify Nomad
+
+```bash
+# Check server quorum (one node should be Leader)
+nomad server members
+
+# Expected output:
+# Name                           Address     Port  Status  Leader  Raft Version  Build  DC   Region
+# nomad-consul-server-1.dc1  10.0.1.x    4648  alive   false   3             2.0.0  dc1  global
+# nomad-consul-server-2.dc1  10.0.1.y    4648  alive   true    3             2.0.0  dc1  global
+# nomad-consul-server-3.dc1  10.0.1.z    4648  alive   false   3             2.0.0  dc1  global
+
+# Check registered client nodes
+nomad node status
+```
+
+### Access the UIs
+
+| Service | URL |
+|---------|-----|
+| Consul UI | `http://<server-public-ip>:8500/ui` |
+| Nomad UI | `http://<server-public-ip>:4646` |
+
+### Run a test Nomad job
+
+```bash
+cat > example.nomad << 'EOF'
 job "example" {
   datacenters = ["dc1"]
-  type = "service"
+  type        = "service"
 
   group "web" {
-    count = 3
+    count = 2
 
     task "nginx" {
       driver = "docker"
@@ -454,253 +434,101 @@ job "example" {
     }
 
     network {
-      port "http" {
-        to = 80
-      }
+      port "http" { to = 80 }
     }
   }
 }
 EOF
 
-# Deploy the job
 nomad job run example.nomad
-
-# Check job status
 nomad job status example
-
-# View allocations
-nomad alloc status <allocation-id>
 ```
 
-### 3. Verify Docker on Clients
-
-```bash
-# Check Docker is running
-ansible clients -a "docker ps"
-
-# Check Docker version
-ansible clients -a "docker version"
-```
-
-### 4. Check Logs
-
-```bash
-# View Nomad logs on servers
-ansible servers -b -a "journalctl -u nomad -n 50"
-
-# View Nomad logs on clients
-ansible clients -b -a "journalctl -u nomad -n 50"
-
-# Follow logs in real-time
-ssh -i ssh_key.pem ubuntu@<server-ip>
-sudo journalctl -u nomad -f
-```
-
-## Optional: Enable ACLs
-
-For production deployments, enable Access Control Lists:
-
-### Step 1: Enable ACLs in Configuration
-
-Edit `ansible/nomad_servers.yaml` and `ansible/nomad_clients.yaml`:
-
-```yaml
-vars:
-  nomad_acl_enabled: true
-```
-
-### Step 2: Redeploy with ACLs
-
-```bash
-cd ansible
-ansible-playbook site.yaml
-```
-
-### Step 3: Bootstrap ACL System
-
-```bash
-ansible-playbook nomad_acl_bootstrap.yaml
-```
-
-**Output Files**:
-- `nomad_bootstrap_token.txt` - Full bootstrap details
-- `nomad_bootstrap_secret_id.txt` - Token only
-
-### Step 4: Use the Bootstrap Token
-
-```bash
-# Export token
-export NOMAD_TOKEN=$(cat nomad_bootstrap_secret_id.txt)
-
-# Verify ACL system
-nomad acl token self
-
-# Use token with commands
-nomad status -token=$(cat nomad_bootstrap_secret_id.txt)
-```
-
-See [BOOTSTRAP_ACL_EXAMPLE.md](ansible/BOOTSTRAP_ACL_EXAMPLE.md) for detailed instructions.
+---
 
 ## Troubleshooting
 
-### Terraform Issues
+### SSH connection failures
 
-#### Issue: Duplicate Key Pair Error
-
-**Error**: `InvalidKeyPair.Duplicate: The keypair already exists`
-
-**Solution**:
 ```bash
-# Delete existing key pair
-aws ec2 delete-key-pair --key-name nomad-consul-key
-
-# Or change project name
-echo 'project_name = "nomad-consul-v2"' >> terraform.tfvars
-```
-
-#### Issue: Insufficient Instance Capacity
-
-**Error**: `InsufficientInstanceCapacity`
-
-**Solution**:
-- Wait a few minutes and retry
-- Try different availability zone
-- Try different instance type (t3a.medium)
-
-### Ansible Issues
-
-#### Issue: SSH Connection Timeout
-
-**Error**: `Failed to connect to the host via ssh`
-
-**Solution**:
-```bash
-# Check SSH key permissions
+# Fix key permissions
 chmod 600 ansible/ssh_key.pem
 
-# Verify instances are running
-cd terraform/aws
-terraform output server_public_ips
+# Test manually
+ssh -i ansible/ssh_key.pem ubuntu@<server-ip>
 
-# Test SSH manually
-ssh -i ../../ansible/ssh_key.pem ubuntu@<server-ip>
+# Run Ansible with verbose output
+ansible all -m ping -vvv -i ansible/inventory.ini
 ```
 
-#### Issue: Nomad Service Not Starting
+### Consul not forming a quorum
 
-**Error**: Service fails to start
-
-**Solution**:
 ```bash
-# Check service status
-ansible all -b -m systemd -a "name=nomad"
+# View Consul logs on a server
+sudo journalctl -u consul -n 100
 
-# View logs
-ansible all -b -a "journalctl -u nomad -n 100"
+# Verify the AutoJoinRole tag exists on instances
+aws ec2 describe-instances \
+  --filters "Name=tag:AutoJoinRole,Values=server" \
+  --query 'Reservations[*].Instances[*].[InstanceId,State.Name,Tags]' \
+  --output table
 
-# Validate configuration
-ansible all -a "nomad config validate /etc/nomad.d/nomad.hcl"
+# Verify the IAM instance profile is attached
+aws ec2 describe-instances \
+  --filters "Name=tag:AutoJoinRole,Values=server" \
+  --query 'Reservations[*].Instances[*].[InstanceId,IamInstanceProfile.Arn]' \
+  --output table
 ```
 
-#### Issue: Clients Not Connecting
+### Nomad servers not forming a quorum
 
-**Error**: Clients don't appear in cluster
-
-**Solution**:
 ```bash
-# Check cloud auto-join logs
-ansible clients -b -a "journalctl -u nomad | grep 'auto-join'"
+# View Nomad logs on a server
+sudo journalctl -u nomad -n 100
 
-# Verify network connectivity
-ansible clients -a "telnet <server-ip> 4647"
-
-# Check security group allows internal traffic
+# Confirm retry_join addresses are reachable from one server to another
+ping <other-server-private-ip>
 ```
+
+### Nomad clients not connecting to servers
+
+```bash
+# View Nomad client logs
+sudo journalctl -u nomad -n 100
+
+# Verify security group allows all internal traffic (protocol -1, self)
+# This is set by network.tf and should already be correct
+```
+
+### Service not starting after config change
+
+```bash
+sudo systemctl status consul
+sudo systemctl status nomad
+
+# Follow logs in real time
+sudo journalctl -u consul -f
+sudo journalctl -u nomad -f
+```
+
+### Terraform: duplicate key pair error
+
+```bash
+aws ec2 delete-key-pair --key-name nomad-consul-key
+# Then re-run terraform apply
+```
+
+### Terraform: InsufficientInstanceCapacity
+
+Try a different availability zone or instance type (e.g., `t3a.medium`), or wait a few minutes and retry.
+
+---
 
 ## Cleanup
-
-### Destroy All Resources
-
-When you're done with the cluster:
 
 ```bash
 cd terraform/aws
 terraform destroy
 ```
 
-**Confirmation**: Type `yes` when prompted
-
-**What Gets Deleted**:
-- All EC2 instances
-- VPC and networking components
-- Security groups
-- IAM roles
-- SSH key pairs (AWS only, local files remain)
-
-**Warning**: This is permanent. Backup important data first.
-
-### Partial Cleanup
-
-To keep infrastructure but stop instances:
-
-```bash
-# Stop instances (still incurs EBS costs)
-aws ec2 stop-instances --instance-ids $(terraform output -json server_instance_ids | jq -r '.[]')
-
-# Start instances later
-aws ec2 start-instances --instance-ids $(terraform output -json server_instance_ids | jq -r '.[]')
-```
-
-## Cost Estimation
-
-### Default Configuration (us-east-2)
-
-| Resource | Quantity | Type | Monthly Cost |
-|----------|----------|------|--------------|
-| Server Instances | 3 | t3.medium | ~$100 |
-| Client Instances | 2 | t3.medium | ~$67 |
-| EBS Volumes | 5 | 50GB gp3 | ~$20 |
-| Data Transfer | - | Varies | ~$10 |
-| **Total** | | | **~$197/month** |
-
-### Cost Optimization
-
-1. **Use Spot Instances**: Up to 90% savings
-2. **Smaller Instances**: Use t3.small for dev/test
-3. **Fewer Instances**: Reduce counts for testing
-4. **Stop When Not in Use**: `terraform destroy` when not needed
-
-## Next Steps
-
-After successful deployment:
-
-1. **Deploy Applications**: Start deploying your workloads
-2. **Set Up Monitoring**: Configure Prometheus/Grafana
-3. **Enable ACLs**: Secure your cluster for production
-4. **Configure TLS**: Enable encrypted communication
-5. **Backup Strategy**: Implement backup procedures
-6. **Documentation**: Document your specific configurations
-
-## Additional Resources
-
-- [Main Project README](README.md)
-- [Ansible Configuration](ansible/README.md)
-- [Terraform AWS Configuration](terraform/aws/README.md)
-- [ACL Bootstrap Guide](ansible/BOOTSTRAP_ACL_EXAMPLE.md)
-- [Security Group Management](ansible/README-SECURITY-GROUP.md)
-- [Nomad Documentation](https://www.nomadproject.io/docs)
-- [Terraform AWS Provider](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
-
-## Support
-
-For issues or questions:
-1. Check the troubleshooting sections in this guide
-2. Review the detailed documentation in each subdirectory
-3. Consult [HashiCorp Nomad Documentation](https://www.nomadproject.io/docs)
-4. Open an issue in the project repository
-
-## License
-
-BSD 2-Clause License - see [LICENSE](LICENSE) file for details.
-
-Copyright (c) 2026, Aimee Ukasick
+Destroys all EC2 instances, VPC, IAM roles, and SSH key pairs.

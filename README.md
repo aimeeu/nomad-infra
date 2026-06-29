@@ -1,537 +1,333 @@
 # nomad-infra
 
-Infrastructure-as-Code for deploying a HashiCorp Nomad v2.0.0 cluster on AWS using Terraform and Ansible.
+Infrastructure-as-Code for deploying a co-located HashiCorp Consul v2.0.1 and Nomad v2.0.0 cluster on AWS using Terraform and Ansible.
 
 ## Overview
 
-This project provides a complete, production-ready solution for deploying HashiCorp Nomad v2.0.0 clusters on AWS. It combines Terraform for infrastructure provisioning and Ansible for configuration management, enabling rapid deployment of secure, scalable Nomad clusters with minimal manual intervention.
+This project provisions a production-ready cluster of **3 servers and 2 clients** on AWS. Every node runs co-located Consul and Nomad agents, providing a service-discovery and service-mesh layer (Consul) alongside a workload-orchestration layer (Nomad) on the same infrastructure.
 
-**📖 [Complete Deployment Guide](DEPLOYMENT.md)** - Step-by-step instructions for deploying your cluster
+**[Complete Deployment Guide](DEPLOYMENT.md)** — Step-by-step instructions for deploying your cluster.
+
+### What Gets Deployed
+
+| Layer | Technology | Version |
+|-------|-----------|---------|
+| Service discovery & mesh | HashiCorp Consul | 2.0.1 |
+| Workload orchestration | HashiCorp Nomad | 2.0.0 |
+| Container runtime | Docker CE | latest |
+| Container networking | CNI plugins | (clients only) |
+| Operating system | Ubuntu 24.04 LTS | latest AMI |
 
 ### Key Features
 
-- **Automated Infrastructure**: Terraform provisions VPC, subnets, EC2 instances, security groups, and IAM roles
-- **Configuration Management**: Ansible handles Nomad installation, configuration, and service management
-- **Cloud Auto-Join**: Automatic cluster member discovery using AWS tags (no hardcoded IPs)
-- **TLS Security**: Automated TLS certificate generation and distribution for secure communication
-- **ACL Support**: Optional Access Control List configuration for production security
-- **Container Networking**: CNI plugins and Docker support for containerized workloads
-- **Flexible Scaling**: Easily adjust cluster size via configuration variables
-- **Idempotent Operations**: Safe to run multiple times without side effects
+- **Co-located cluster**: Consul and Nomad agents run side-by-side on every node
+- **Consul Cloud Auto-Join**: Consul discovers peers automatically using the `AutoJoinRole` EC2 tag — no hardcoded IPs
+- **Nomad static join**: Nomad uses private IPs from the Ansible inventory for `server_join.retry_join`
+- **IAM-powered discovery**: EC2 instance profiles grant least-privilege `ec2:DescribeInstances` access for Consul Cloud Auto-Join
+- **TLS-ready**: Certificate generation and distribution are wired in; enable per-playbook with `nomad_tls_enabled: true` / `consul_tls_enabled: true`
+- **ACL-ready**: Consul ACLs are enabled on servers by default; Nomad ACLs are enabled on all nodes by default; each has a dedicated bootstrap playbook
+- **CNI + Docker**: Clients install CNI plugins and Docker CE for containerized workloads
+- **Idempotent**: Safe to re-run Terraform and Ansible repeatedly
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                      AWS VPC                            │
-│                   (10.0.0.0/16)                         │
-│                                                         │
-│  ┌──────────────────────────────────────────────────┐  │
-│  │         Public Subnet (10.0.1.0/24)              │  │
-│  │                                                  │  │
-│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐      │  │
-│  │  │ Server 1 │  │ Server 2 │  │ Server 3 │      │  │
-│  │  │  Nomad   │  │  Nomad   │  │  Nomad   │      │  │
-│  │  │  Server  │  │  Server  │  │  Server  │      │  │
-│  │  └──────────┘  └──────────┘  └──────────┘      │  │
-│  │                                                  │  │
-│  │  ┌──────────┐  ┌──────────┐                     │  │
-│  │  │ Client 1 │  │ Client 2 │                     │  │
-│  │  │  Nomad   │  │  Nomad   │                     │  │
-│  │  │ + Docker │  │ + Docker │                     │  │
-│  │  └──────────┘  └──────────┘                     │  │
-│  │                                                  │  │
-│  └──────────────────────────────────────────────────┘  │
-│                                                         │
-│  Internet Gateway                                       │
-└─────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    Internet((Internet))
+    IGW[Internet Gateway]
+
+    subgraph VPC["AWS VPC (10.0.0.0/16)"]
+        subgraph Subnet["Public Subnet (10.0.1.0/24)"]
+            subgraph S1["Server 1 · t3.medium · 50 GB gp3"]
+                CS1[Consul Server]
+                NS1[Nomad Server]
+                DS1[Docker]
+            end
+            subgraph S2["Server 2 · t3.medium · 50 GB gp3"]
+                CS2[Consul Server]
+                NS2[Nomad Server]
+                DS2[Docker]
+            end
+            subgraph S3["Server 3 · t3.medium · 50 GB gp3"]
+                CS3[Consul Server]
+                NS3[Nomad Server]
+                DS3[Docker]
+            end
+            subgraph C1["Client 1 · t3.medium · 50 GB gp3"]
+                CC1[Consul Client]
+                NC1[Nomad Client]
+                DC1[Docker + CNI]
+            end
+            subgraph C2["Client 2 · t3.medium · 50 GB gp3"]
+                CC2[Consul Client]
+                NC2[Nomad Client]
+                DC2[Docker + CNI]
+            end
+        end
+    end
+
+    Internet --> IGW --> Subnet
 ```
 
-### Component Overview
+### Node Roles
 
-- **3 Server Nodes**: Form the Nomad control plane, handle scheduling and state management
-- **2 Client Nodes**: Execute workloads, run Docker containers
-- **VPC & Networking**: Isolated network with public subnet and internet gateway
-- **Security Groups**: Firewall rules for SSH, Nomad UI/API, and internal cluster communication
-- **IAM Roles**: Permissions for cloud auto-join functionality
-- **TLS Certificates**: Secure communication between cluster members
+| Node type | Consul agent | Nomad agent | Docker | CNI plugins |
+|-----------|-------------|------------|--------|-------------|
+| Server (×3) | Server | Server | ✓ | — |
+| Client (×2) | Client | Client | ✓ | ✓ |
+
+### Cluster Discovery
+
+| Service | Discovery method |
+|---------|----------------|
+| Consul | AWS Cloud Auto-Join — queries EC2 API for instances tagged `AutoJoinRole=server` |
+| Nomad | Static `server_join.retry_join` — private IPs from the `[servers]` inventory group |
+
+### Open Ports
+
+| Port | Protocol | Service | Accessible from |
+|------|----------|---------|----------------|
+| 22 | TCP | SSH | `allowed_ssh_cidr` |
+| 8500 | TCP | Consul HTTP API & UI | 0.0.0.0/0 ⚠️ |
+| 8300 | TCP | Consul RPC | Internal (security group) |
+| 8301 | TCP/UDP | Consul Serf LAN | Internal (security group) |
+| 4646 | TCP | Nomad HTTP API & UI | 0.0.0.0/0 ⚠️ |
+| all | all | Internal cluster traffic | Internal (security group) |
+
+⚠️ Restrict these in production. See [ansible/README-SECURITY-GROUP.md](ansible/README-SECURITY-GROUP.md).
 
 ## Prerequisites
 
 ### Required Tools
 
-- **[Terraform](https://www.terraform.io/downloads.html)** >= 1.0
-- **[AWS CLI](https://aws.amazon.com/cli/)** configured with appropriate credentials
-- **[Ansible](https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.html)** >= 2.9
+- **Terraform** ≥ 1.0
+- **Ansible** ≥ 2.14
+- **AWS CLI** configured with credentials that can manage EC2, VPC, IAM, and key pairs
 
-### AWS Requirements
+### Ansible Collections and Roles
 
-- AWS account with appropriate permissions
-- AWS credentials configured (via `aws configure` or environment variables)
-- Sufficient EC2 instance limits in target region
+Install before running any playbook:
 
-### Ansible Collections
-
-Install required Ansible collections and roles:
 ```bash
-ansible-galaxy install -r ansible/requirements.yaml
+cd ansible
+ansible-galaxy install -r requirements.yaml
 ```
 
 ## Quick Start
 
-**For detailed step-by-step instructions, see the [Complete Deployment Guide](DEPLOYMENT.md).**
+**For full step-by-step instructions, see [DEPLOYMENT.md](DEPLOYMENT.md).**
 
-### 1. Configure Variables
-
-Copy the example variables file and customize it:
+### 1. Provision infrastructure
 
 ```bash
 cd terraform/aws
 cp terraform.tfvars.example terraform.tfvars
-```
+# Edit terraform.tfvars — set aws_region, owner, and allowed_ssh_cidr at minimum
 
-Edit [`terraform.tfvars`](terraform/aws/terraform.tfvars) to set your preferences:
-
-```hcl
-aws_region       = "us-east-1"
-project_name     = "nomad-cluster"
-owner            = "your-name"
-environment      = "dev"
-allowed_ssh_cidr = "YOUR_IP/32"  # Restrict SSH access to your IP
-server_count     = 3
-client_count     = 2
-```
-
-### 2. Deploy Infrastructure
-
-```bash
-cd terraform/aws
-
-# Initialize Terraform
 terraform init
-
-# Review the execution plan
 terraform plan
-
-# Apply the configuration
 terraform apply
 ```
 
-**Expected Duration**: ~5 minutes
+Terraform creates the VPC, EC2 instances, IAM roles, SSH key pair, and writes `ansible/inventory.ini` automatically.
 
-**What Gets Created**:
-- VPC with public subnet
-- 3 server EC2 instances (t3.medium)
-- 2 client EC2 instances (t3.medium)
-- Security groups with firewall rules
-- SSH key pair (saved to `ansible/ssh_key.pem`)
-- IAM roles for cloud auto-join
-- Ansible inventory file (`ansible/inventory.ini`)
-
-### 3. Configure Nomad with Ansible
-
-After infrastructure is provisioned, configure Nomad on all nodes:
+### 2. Install Ansible dependencies
 
 ```bash
-cd ../../ansible
-
-# Install required Ansible Galaxy roles
+cd ansible
 ansible-galaxy install -r requirements.yaml
+```
 
-# Install and configure Nomad on all nodes
+### 3. Deploy Consul and Nomad — full cluster
+
+```bash
 ansible-playbook -i inventory.ini site.yaml
+```
 
-# Bootstrap the Nomad ACL system
+`site.yaml` runs the playbooks in dependency order:
+
+1. `consul_servers.yaml` — installs and starts Consul server agents
+2. `consul_clients.yaml` — installs and starts Consul client agents
+3. `nomad_servers.yaml` — installs and starts Nomad server agents
+4. `nomad_clients.yaml` — installs and starts Nomad client agents
+
+### 4. Deploy Consul only
+
+```bash
+ansible-playbook -i inventory.ini consul_servers.yaml
+ansible-playbook -i inventory.ini consul_clients.yaml
+```
+
+### 5. Deploy Nomad only (Consul must already be running)
+
+```bash
+ansible-playbook -i inventory.ini nomad_servers.yaml
+ansible-playbook -i inventory.ini nomad_clients.yaml
+```
+
+### 6. Bootstrap ACLs (optional, post-cluster)
+
+```bash
+# Consul ACLs (consul_acl_enabled: true is set in consul_servers.yaml)
+ansible-playbook -i inventory.ini consul_acl_bootstrap.yaml
+
+# Nomad ACLs (nomad_acl_enabled: true is set in both nomad playbooks)
 ansible-playbook -i inventory.ini nomad_acl_bootstrap.yaml
 ```
 
-**Expected Duration**: ~10 minutes
+### 7. Access the cluster
 
-**What Gets Configured**:
-- Base system packages and configuration
-- CNI plugins for container networking (clients only)
-- Docker installation (clients only)
-- Nomad v2.0.0 installation
-- Nomad server cluster formation
-- Nomad client registration
-- Systemd service configuration
+| Service | URL |
+|---------|-----|
+| Consul UI | `http://<server-ip>:8500/ui` |
+| Nomad UI | `http://<server-ip>:4646` |
 
-### 4. Access Your Cluster
-
-The Ansible playbooks output server and client addresses.
-
-**Nomad UI**: Navigate to `http://<server-ip>:4646` in your browser
-
-You may use the [Nomad CLI](https://developer.hashicorp.com/nomad/commands) to access Nomad from your workstation. Refer to the
-[Nomad install page](https://developer.hashicorp.com/nomad/install) 
-for how to install the CLI on your workstation. 
-
-Set the following environment variables in your terminal:
-
-- NOMAD_TOKEN: The Nomad bootstrap or management token `Secret ID` value.
-- NOMAD_ADDR: The publicly accessible Nomad URL.
-
-For example:
+Set environment variables for CLI access:
 
 ```bash
-export NOMAD_TOKEN=<secret-id>
-export NOMAD_ADDR=http://18.118.202.224:4646
-```
+export CONSUL_HTTP_ADDR=http://<server-ip>:8500
+export NOMAD_ADDR=http://<server-ip>:4646
 
+# If ACLs are enabled:
+export CONSUL_HTTP_TOKEN=$(cat ansible/consul-bootstrap-secret-id.txt)
+export NOMAD_TOKEN=$(cat ansible/nomad-bootstrap-secret-id.txt)
+```
 
 ## Configuration
 
 ### Terraform Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `aws_region` | AWS region for deployment | `us-east-2` |
-| `project_name` | Project name for resource naming | `nomad-consul` |
-| `owner` | Owner tag for resources | `devops-team` |
-| `environment` | Environment name (dev/staging/prod) | `dev` |
-| `vpc_cidr` | VPC CIDR block | `10.0.0.0/16` |
-| `subnet_cidr` | Public subnet CIDR block | `10.0.1.0/24` |
-| `allowed_ssh_cidr` | CIDR allowed for SSH access | `0.0.0.0/0` ⚠️ |
-| `server_count` | Number of server instances | `3` |
-| `client_count` | Number of client instances | `2` |
-| `server_instance_type` | EC2 instance type for servers | `t3.medium` |
-| `client_instance_type` | EC2 instance type for clients | `t3.medium` |
-| `ami_owner` | AWS account ID of AMI owner | `099720109477` (Canonical) |
-| `ami_name_filter` | AMI name filter | `ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*` |
-| `ssh_user` | SSH user for instances | `ubuntu` |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `aws_region` | `us-east-2` | AWS region |
+| `project_name` | `nomad-consul` | Resource name prefix |
+| `owner` | `devops-team` | Owner tag |
+| `environment` | `dev` | Environment tag |
+| `vpc_cidr` | `10.0.0.0/16` | VPC CIDR block |
+| `subnet_cidr` | `10.0.1.0/24` | Public subnet CIDR |
+| `allowed_ssh_cidr` | `0.0.0.0/0` ⚠️ | CIDR allowed for SSH |
+| `server_count` | `3` | Number of server EC2 instances |
+| `client_count` | `2` | Number of client EC2 instances |
+| `server_instance_type` | `t3.medium` | Server EC2 instance type |
+| `client_instance_type` | `t3.medium` | Client EC2 instance type |
 
-⚠️ **Security Note**: Change `allowed_ssh_cidr` to your specific IP address or network range.
+⚠️ Always set `allowed_ssh_cidr` to your specific IP address or network range.
 
-### Ansible Variables
+### Ansible Variables — Consul
 
-Key variables in [`ansible/roles/nomad/defaults/main.yaml`](ansible/roles/nomad/defaults/main.yaml):
+Defaults: [`ansible/roles/consul/defaults/main.yaml`](ansible/roles/consul/defaults/main.yaml)
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `nomad_binary_version` | Nomad version to install | `2.0.0` |
-| `nomad_server_enabled` | Enable server mode | `false` |
-| `nomad_client_enabled` | Enable client mode | `false` |
-| `nomad_cloud_auto_join_enabled` | Enable AWS cloud auto-join | `false` |
-| `nomad_acl_enabled` | Enable ACLs | `false` |
-| `nomad_log_level` | Logging level | `INFO` |
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `consul_binary_version` | `2.0.1` | Consul release to install |
+| `consul_datacenter` | `dc1` | Datacenter name |
+| `consul_server_enabled` | `false` | Enable server mode |
+| `consul_server_bootstrap_expect` | `3` | Quorum size |
+| `consul_cloud_auto_join_enabled` | `false` | Enable AWS Cloud Auto-Join |
+| `consul_acl_enabled` | `false` | Enable ACLs |
+| `consul_tls_enabled` | `false` | Enable TLS |
 
-### Terraform Outputs
+### Ansible Variables — Nomad
 
-After deployment, the following outputs are available:
+Defaults: [`ansible/roles/nomad/defaults/main.yaml`](ansible/roles/nomad/defaults/main.yaml)
 
-- `ami_id` - AMI ID used for instances
-- `vpc_id` - VPC ID
-- `subnet_id` - Subnet ID
-- `security_group_id` - Security group ID
-- `server_public_ips` - Public IPs of server instances
-- `server_private_ips` - Private IPs of server instances
-- `client_public_ips` - Public IPs of client instances
-- `client_private_ips` - Private IPs of client instances
-- `nomad_ui_urls` - URLs to access Nomad UI (http://server-ip:4646)
-- `ssh_commands` - SSH commands for all instances
-- `ssh_private_key_path` - Path to generated SSH private key
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `nomad_binary_version` | `2.0.0` | Nomad release to install |
+| `nomad_server_enabled` | `false` | Enable server mode |
+| `nomad_server_bootstrap_expect` | `3` | Quorum size |
+| `nomad_client_enabled` | `false` | Enable client mode |
+| `nomad_cloud_auto_join_enabled` | `false` | Enable AWS Cloud Auto-Join |
+| `nomad_acl_enabled` | `false` | Enable ACLs |
+| `nomad_tls_enabled` | `false` | Enable TLS |
+| `nomad_log_level` | `DEBUG` | Log level |
 
 ## Network Security
 
-The security group configuration allows:
+The security group allows:
 
-- **SSH (22)**: From `allowed_ssh_cidr` (default: 0.0.0.0/0 - **change this!**)
-- **Nomad UI/API (4646)**: From anywhere (0.0.0.0/0)
-- **Nomad RPC (4647)**: Internal cluster communication only
-- **Nomad Serf (4648)**: Internal cluster communication only
-- **Internal traffic**: All ports between cluster members
-- **Egress**: All outbound traffic
+- **SSH (22)**: From `allowed_ssh_cidr` (default `0.0.0.0/0` — **change this**)
+- **Consul HTTP API/UI (8500)**: From `0.0.0.0/0` — restrict in production
+- **Nomad HTTP API/UI (4646)**: From `0.0.0.0/0` — restrict in production
+- **All internal traffic**: Between instances sharing the security group
+- **Egress**: All outbound traffic allowed
 
-**Security Recommendations**:
-1. Update `allowed_ssh_cidr` to your specific IP address or corporate network range
-2. Consider restricting Nomad UI access to specific IPs
-3. Use a VPN or bastion host for production environments
-4. Enable ACLs for production deployments
-5. Implement TLS for all communications
+See [ansible/README-SECURITY-GROUP.md](ansible/README-SECURITY-GROUP.md) for hardening guidance.
 
 ## IAM Permissions
 
-The infrastructure creates IAM roles with the following permissions for cloud auto-join:
+Every EC2 instance receives an IAM instance profile with the following permissions for Consul Cloud Auto-Join:
 
 - `ec2:DescribeInstances`
 - `ec2:DescribeTags`
 - `autoscaling:DescribeAutoScalingGroups`
 
-These permissions enable Nomad to automatically discover cluster members using AWS tags, should you opt to use that approach. By default, cloud auto join is not enabled.
-
 ## Project Structure
 
 ```
 nomad-infra/
-├── README.md                           # This file
-├── LICENSE                             # BSD 2-Clause License
-├── .gitignore                          # Git ignore patterns
+├── README.md                             # This file
+├── DEPLOYMENT.md                         # Full deployment walkthrough
+├── AGENTS.md                             # Coding agent guidelines
 ├── terraform/
 │   └── aws/
-│       ├── main.tf                     # Provider configuration
-│       ├── variables.tf                # Variable definitions
-│       ├── outputs.tf                  # Output definitions
-│       ├── ami.tf                      # AMI data source
-│       ├── network.tf                  # VPC, subnet, security group
-│       ├── compute.tf                  # EC2 instances
-│       ├── iam.tf                      # IAM roles and policies
-│       ├── keypair.tf                  # SSH key generation
-│       ├── inventory.tpl               # Ansible inventory template
-│       ├── terraform.tfvars.example    # Example variables
-│       └── README.md                   # Terraform documentation
+│       ├── main.tf                       # Provider configuration
+│       ├── variables.tf                  # Input variables
+│       ├── outputs.tf                    # Output values
+│       ├── ami.tf                        # Ubuntu 24.04 AMI lookup
+│       ├── network.tf                    # VPC, subnet, security group
+│       ├── compute.tf                    # EC2 instances + inventory generation
+│       ├── iam.tf                        # IAM role for cloud auto-join
+│       ├── keypair.tf                    # SSH key pair
+│       ├── inventory.tpl                 # Ansible inventory template
+│       ├── terraform.tfvars.example      # Variable examples
+│       └── README.md                     # Terraform reference
 └── ansible/
-    ├── ansible.cfg                     # Ansible configuration
-    ├── site.yaml                       # Main orchestration playbook
-    ├── inventory.ini                   # Auto-generated by Terraform
-    ├── ssh_key.pem                     # Auto-generated SSH key
-    ├── requirements.yaml               # Ansible Galaxy requirements
-    ├── README.md                       # Ansible documentation
-    ├── PLAYBOOKS-README.md             # Detailed playbook documentation
-    ├── BOOTSTRAP_ACL_EXAMPLE.md        # ACL bootstrap guide
-    ├── ANSIBLE_LINT_RESULTS.md         # Linting results
-    ├── nomad_acl_bootstrap.yaml        # ACL bootstrap playbook
-    ├── nomad_servers.yaml              # Server configuration playbook
-    ├── nomad_clients.yaml              # Client configuration playbook
+    ├── ansible.cfg                       # Ansible configuration
+    ├── requirements.yaml                 # Galaxy roles (geerlingguy.docker)
+    ├── inventory.ini                     # Auto-generated by Terraform
+    ├── ssh_key.pem                       # Auto-generated SSH private key
+    ├── site.yaml                         # Full cluster playbook (recommended)
+    ├── consul_servers.yaml               # Consul server configuration
+    ├── consul_clients.yaml               # Consul client configuration
+    ├── consul_acl_bootstrap.yaml         # Consul ACL bootstrap
+    ├── consul_acl_remove_anonymous.yaml  # Remove Consul anonymous token
+    ├── nomad_servers.yaml                # Nomad server configuration
+    ├── nomad_clients.yaml                # Nomad client configuration
+    ├── nomad_acl_bootstrap.yaml          # Nomad ACL bootstrap
+    ├── update-security-group.yaml        # Security group maintenance
+    ├── PLAYBOOKS-README.md               # Playbook reference
+    ├── BOOTSTRAP_ACL_EXAMPLE.md          # ACL bootstrap walkthrough
+    ├── README-SECURITY-GROUP.md          # Security group hardening guide
     └── roles/
-        ├── common/                     # Base system configuration
-        │   ├── defaults/
-        │   ├── tasks/
-        │   └── README.md
-        ├── cni/                        # CNI plugins installer
-        │   ├── defaults/
-        │   ├── tasks/
-        │   └── README.md
-        ├── hashicorp_release/          # HashiCorp binary installer
-        │   ├── defaults/
-        │   ├── tasks/
-        │   └── README.md
-        ├── helper/                     # Utility role for common tasks
-        │   ├── defaults/
-        │   ├── tasks/
-        │   └── README.md
-        ├── nomad/                      # Nomad installation & config
-        │   ├── defaults/
-        │   ├── handlers/
-        │   ├── tasks/
-        │   ├── templates/
-        │   └── README.md
-        └── tls/                        # TLS certificate generation
-            ├── defaults/
-            ├── tasks/
-            └── README.md
+        ├── common/                       # Base system setup
+        ├── cni/                          # CNI plugins (clients only)
+        ├── hashicorp_release/            # HashiCorp binary installer
+        ├── helper/                       # File and package utilities
+        ├── consul/                       # Consul install and configure
+        ├── nomad/                        # Nomad install and configure
+        └── tls/                          # TLS certificate generation
 ```
 
-## Advanced Usage
+## Sensitive Files
 
-### Enable ACLs
+The following files are git-ignored and must never be committed:
 
-To enable Access Control Lists for production security:
-
-1. **Enable ACLs in playbook**:
-   ```yaml
-   # ansible/nomad_servers.yaml
-   vars:
-     nomad_acl_enabled: true
-   ```
-
-2. **Deploy with ACLs enabled**:
-   ```bash
-   ansible-playbook site.yaml
-   ```
-
-3. **Bootstrap ACL system**:
-   ```bash
-   ansible-playbook nomad_acl_bootstrap.yaml
-   ```
-
-4. **Use the bootstrap token**:
-   ```bash
-   export NOMAD_TOKEN=$(cat ansible/nomad-bootstrap-secret-id.txt)
-   nomad status
-   ```
-
-Refer to [`ansible/BOOTSTRAP_ACL_EXAMPLE.md`](ansible/BOOTSTRAP_ACL_EXAMPLE.md) for detailed instructions.
-
-### Scale the Cluster
-
-To add more nodes:
-
-```bash
-# Update terraform.tfvars
-echo 'client_count = 5' >> terraform/aws/terraform.tfvars
-
-# Apply changes
-cd terraform/aws
-terraform apply
-
-# Configure new nodes
-cd ../../ansible
-ansible-playbook nomad_clients.yaml
-```
-
-### Upgrade Nomad
-
-To upgrade to a newer Nomad version:
-
-```bash
-# Update version in ansible/roles/nomad/defaults/main.yaml
-nomad_binary_version: "2.0.2"
-
-# Re-run Ansible playbooks
-ansible-playbook site.yaml
-```
-
+| File | Contents |
+|------|----------|
+| `ansible/ssh_key.pem` | SSH private key for all EC2 instances |
+| `ansible/.tls/` | Generated TLS certificates |
+| `ansible/consul-bootstrap-token-output.txt` | Consul management ACL token |
+| `ansible/consul-bootstrap-secret-id.txt` | Consul ACL SecretID |
+| `ansible/nomad-bootstrap-token-output.txt` | Nomad management ACL token |
+| `ansible/nomad-bootstrap-secret-id.txt` | Nomad ACL SecretID |
+| `terraform/aws/terraform.tfvars` | AWS credentials and configuration |
 
 ## Cleanup
-
-To destroy all resources:
 
 ```bash
 cd terraform/aws
 terraform destroy
 ```
 
-**Warning**: This will permanently delete all resources created by Terraform, including:
-- All EC2 instances
-- VPC and networking components
-- Security groups
-- IAM roles
-- SSH key pairs
-
-**Important**: Backup any important data before destroying resources.
-
-## Troubleshooting
-
-### Common Issues
-
-#### 1. SSH Permission Denied
-
-**Problem**: Cannot SSH to instances
-
-**Solution**:
-```bash
-chmod 600 ansible/ssh_key.pem
-ssh -i ansible/ssh_key.pem ubuntu@<server-ip>
-```
-
-#### 2. Ansible Connection Timeout
-
-**Problem**: Ansible cannot connect to instances
-
-**Solution**:
-```bash
-# Verify instances are running
-terraform output server_public_ips
-
-# Test SSH connectivity
-ssh -i ansible/ssh_key.pem ubuntu@<server-ip>
-
-# Check security group allows SSH from your IP
-```
-
-#### 3. Nomad Service Not Starting
-
-**Problem**: Nomad service fails to start
-
-**Solution**:
-```bash
-# Check service status
-ansible all -b -m systemd -a "name=nomad state=status"
-
-# View logs
-ansible all -b -a "journalctl -u nomad -n 50"
-
-# Validate configuration
-ansible all -a "nomad config validate /etc/nomad.d/nomad.hcl"
-```
-
-#### 4. Clients Not Connecting to Servers
-
-**Problem**: Client nodes don't appear in cluster
-
-**Solution**:
-```bash
-# Check cloud auto-join configuration
-ansible clients -a "nomad agent-info | grep servers"
-
-# Verify network connectivity
-ansible clients -a "telnet <server-ip> 4647"
-
-# Check IAM instance profile is attached
-```
-
-#### 5. Docker Not Working on Clients
-
-**Problem**: Cannot run Docker jobs
-
-**Solution**:
-```bash
-# Verify Docker is installed
-ansible clients -a "docker ps"
-
-# Check Docker driver in Nomad
-ansible clients -a "nomad node status -self | grep docker"
-
-# Restart Nomad service
-ansible clients -b -m systemd -a "name=nomad state=restarted"
-```
-
-### Getting Help
-
-- Check the detailed documentation in each subdirectory
-- Review Nomad logs: `journalctl -u nomad -f`
-- Consult [HashiCorp Nomad Documentation](https://www.nomadproject.io/docs)
-- Open an issue in the project repository
-
-## Documentation
-
-- **[Terraform AWS README](terraform/aws/README.md)** - Detailed Terraform configuration documentation
-- **[Ansible README](ansible/README.md)** - Ansible configuration and usage guide
-- **[Playbooks README](ansible/PLAYBOOKS-README.md)** - Comprehensive playbook documentation
-- **[ACL Bootstrap Guide](ansible/BOOTSTRAP_ACL_EXAMPLE.md)** - Step-by-step ACL setup
-- **Role Documentation** - Individual README files in each role directory
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-### Development Guidelines
-
-1. Test changes in a separate environment
-2. Update documentation for any new features
-3. Follow existing code style and conventions
-4. Add comments for complex logic
-5. Update README files as needed
-
-## License
-
-BSD 2-Clause License - see [LICENSE](LICENSE) file for details.
-
-Copyright (c) 2026, Aimee Ukasick
-
-## Resources
-
-### HashiCorp Documentation
-- [Nomad Documentation](https://www.nomadproject.io/docs)
-- [Nomad Cloud Auto-Join](https://developer.hashicorp.com/nomad/docs/configuration/server_join)
-- [Nomad ACL System](https://developer.hashicorp.com/nomad/docs/configuration/acl)
-- [Nomad Job Specification](https://developer.hashicorp.com/nomad/docs/job-specification)
-
-### AWS Documentation
-- [Terraform AWS Provider](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
-- [AWS EC2 Documentation](https://docs.aws.amazon.com/ec2/)
-- [AWS VPC Documentation](https://docs.aws.amazon.com/vpc/)
-
-### Ansible Documentation
-- [Ansible Documentation](https://docs.ansible.com/)
-- [Ansible Best Practices](https://docs.ansible.com/ansible/latest/tips_tricks/ansible_tips_tricks.html)
-- [Ansible Galaxy](https://galaxy.ansible.com/)
-
-## Acknowledgments
-
-This project uses:
-- HashiCorp Nomad for workload orchestration
-- Terraform for infrastructure provisioning
-- Ansible for configuration management
-- AWS for cloud infrastructure
-- Ubuntu 24.04 LTS as the base operating system
+This permanently removes all EC2 instances, VPC, subnet, IAM roles, and SSH key pairs created by this project.
