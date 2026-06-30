@@ -17,4 +17,4 @@ hashicorp_release_architecture: "{{ hashicorp_release_architecture_map[ansible_f
 
 hashicorp_release_zip_url: "https://releases.hashicorp.com/{{ hashicorp_release_product_name }}/{{ hashicorp_release_product_version }}/{{ hashicorp_release_product_name }}_{{ hashicorp_release_product_version }}_linux_{{ hashicorp_release_architecture }}.zip"
 
-# Made with Bob
+

@@ -1,4 +1,4 @@
-# AWS Security Group Management for Nomad Infrastructure
+# AWS security group management for Nomad infrastructure
 
 This playbook allows you to dynamically add custom ingress rules to the AWS security group created by Terraform for the Nomad infrastructure. It provides a flexible, safe way to open additional ports for your applications without modifying Terraform configuration.
 
@@ -14,13 +14,13 @@ The `update-security-group.yaml` playbook:
 
 ## Prerequisites
 
-### 1. Install Required Ansible Collection
+### 1. Install required Ansible collection
 
 ```bash
 ansible-galaxy collection install amazon.aws
 ```
 
-### 2. Install Python Dependencies
+### 2. Install Python dependencies
 
 ```bash
 pip install boto3 botocore
@@ -33,7 +33,7 @@ source venv/bin/activate
 pip install boto3 botocore
 ```
 
-### 3. Configure AWS Credentials
+### 3. Configure AWS credentials
 
 Choose one of the following methods:
 
@@ -57,7 +57,7 @@ export AWS_PROFILE="your-profile-name"
 **Option D: IAM Role** (if running on EC2 instance)
 - No configuration needed, uses instance IAM role
 
-### 4. Verify Terraform Infrastructure
+### 4. Verify Terraform infrastructure
 
 Ensure your Nomad infrastructure has been deployed:
 ```bash
@@ -67,7 +67,7 @@ terraform output security_group_id
 
 ## Usage
 
-### Basic Usage - Add Default Port (9002)
+### Basic usage - add default port (9002)
 
 ```bash
 cd ansible
@@ -76,7 +76,7 @@ ansible-playbook update-security-group.yaml
 
 This adds an ingress rule for port 9002 (default) with the description "Custom application port".
 
-### Add Custom Port
+### Add custom port
 
 ```bash
 ansible-playbook update-security-group.yaml \
@@ -84,7 +84,7 @@ ansible-playbook update-security-group.yaml \
   -e custom_port_description="Web Application"
 ```
 
-### Add Multiple Ports
+### Add multiple ports
 
 Run the playbook multiple times with different ports:
 
@@ -105,14 +105,14 @@ ansible-playbook update-security-group.yaml \
   -e custom_port_description="REST API"
 ```
 
-### Use Different AWS Region
+### Use different AWS region
 
 ```bash
 ansible-playbook update-security-group.yaml \
   -e aws_region=us-west-2
 ```
 
-### Use Different Project Name
+### Use different project name
 
 If you customized the project name in Terraform:
 
@@ -121,7 +121,7 @@ ansible-playbook update-security-group.yaml \
   -e project_name=my-nomad-cluster
 ```
 
-### Use Environment Variables
+### Use environment variables
 
 ```bash
 export AWS_REGION=us-east-2
@@ -132,7 +132,7 @@ export CUSTOM_PORT_DESC="Countdash web app"
 ansible-playbook update-security-group.yaml
 ```
 
-### Combine Multiple Options
+### Combine multiple options
 
 ```bash
 ansible-playbook update-security-group.yaml \
@@ -142,9 +142,9 @@ ansible-playbook update-security-group.yaml \
   -e custom_port_description="Custom App"
 ```
 
-## What the Playbook Does
+## What the playbook does
 
-### Step-by-Step Process
+### Step-by-step process
 
 1. **Lookup Security Group**: Finds the security group by tag `Name: {project_name}-sg`
 2. **Retrieve Configuration**: Gets current security group rules and settings
@@ -154,7 +154,7 @@ ansible-playbook update-security-group.yaml \
 6. **Report Results**: Displays success message or indicates no changes needed
 7. **Show Instructions**: Provides usage examples for future reference
 
-### Security Group Rule Format
+### Security group rule format
 
 Each rule added includes:
 - **Protocol**: TCP
@@ -162,9 +162,9 @@ Each rule added includes:
 - **Source**: 0.0.0.0/0 (all IPs) - see security considerations below
 - **Description**: Custom description for the rule
 
-## Configuration Options
+## Configuration options
 
-### Default Values
+### Default values
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -173,7 +173,7 @@ Each rule added includes:
 | `custom_port` | `9002` | Port to add to security group |
 | `custom_port_description` | `Custom application port` | Description for the rule |
 
-### Override Methods
+### Override methods
 
 **Command Line** (Recommended):
 ```bash
@@ -186,9 +186,9 @@ export CUSTOM_PORT=8080
 ansible-playbook update-security-group.yaml
 ```
 
-## Security Considerations
+## Security considerations
 
-### ⚠️ Important Security Notes
+### Important security notes
 
 1. **Default CIDR is 0.0.0.0/0**: The playbook adds rules that allow access from anywhere. This is convenient for development but **not recommended for production**.
 
@@ -217,7 +217,7 @@ ansible-playbook update-security-group.yaml
 
 5. **Principle of Least Privilege**: Only open ports that are absolutely necessary
 
-### Best Practices
+### Best practices
 
 - **Document Rules**: Use descriptive names for each port
 - **Remove Unused Rules**: Clean up rules for decommissioned applications
@@ -354,7 +354,7 @@ terraform output security_group_id
 
 ## Advanced Usage
 
-### Restrict to Specific IP Range
+### Restrict to specific IP range
 
 Edit the playbook to restrict access:
 
@@ -368,7 +368,7 @@ rules:
     rule_desc: "{{ custom_port_description }}"
 ```
 
-### Add Multiple Ports in One Run
+### Add multiple ports in one run
 
 Create a wrapper script:
 
@@ -428,7 +428,7 @@ aws ec2 revoke-security-group-ingress \
 **Using Terraform** (Recommended):
 Add the rule to your Terraform configuration for better infrastructure management.
 
-## Related Documentation
+## Related documentation
 
 - [Main Project README](../README.md)
 - [Ansible Configuration](README.md)
@@ -437,7 +437,7 @@ Add the rule to your Terraform configuration for better infrastructure managemen
 
 ## Examples
 
-### Example 1: Add Countdash Application Port
+### Example 1: Add Countdash application port
 
 ```bash
 ansible-playbook update-security-group.yaml \
@@ -457,7 +457,7 @@ ok: [localhost] => {
 }
 ```
 
-### Example 2: Add Multiple Application Ports
+### Example 2: Add multiple application ports
 
 ```bash
 # Web frontend
@@ -476,7 +476,7 @@ ansible-playbook update-security-group.yaml \
   -e custom_port_description="Prometheus Metrics"
 ```
 
-### Example 3: Different Region and Project
+### Example 3: Different region and project
 
 ```bash
 ansible-playbook update-security-group.yaml \

@@ -9,4 +9,4 @@
   loop: "{{ helper_sync_local_paths }}"
   when: helper_sync_local_paths | length > 0
 
-# Made with Bob
+

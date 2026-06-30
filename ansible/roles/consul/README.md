@@ -9,7 +9,7 @@ Ansible role to install and configure a [Consul](https://www.consul.io/) v2.x ag
 - `geerlingguy.docker` role installed via `requirements.yaml` (Docker must be present before Consul starts)
 - The `community.crypto` collection for TLS certificate operations when `consul_tls_enabled: true`
 
-## Role Variables
+## Role variables
 
 Key variables (see `defaults/main.yaml` for the full list and defaults):
 
@@ -31,13 +31,11 @@ Key variables (see `defaults/main.yaml` for the full list and defaults):
 | `consul_gossip_encryption_key` | `""` | Base64 gossip key (generate with `consul keygen`) |
 | `consul_connect_enabled` | `false` | Enable Consul Connect (service mesh) |
 
-## Inventory Groups
+## Inventory groups
 
-This role expects:
-- `consul_servers` — hosts that run as Consul servers
-- `consul_clients` — hosts that run as Consul clients (joined to `consul_servers`)
-
-The playbooks in this repo map the Terraform-generated `[servers]` group to `consul_servers` and `[clients]` to `consul_clients`.
+This role targets the Terraform-generated inventory groups directly:
+- `[servers]` — hosts that run as Consul servers (`consul_server_enabled: true`)
+- `[clients]` — hosts that run as Consul clients (`consul_server_enabled: false`)
 
 ## TLS
 
@@ -48,13 +46,13 @@ When `consul_tls_enabled: true`, certificates must exist at:
 
 Use the `tls` role (bundled in this repo) to generate a self-signed CA and node certificates on the control host, then distribute them via the `helper` role as shown in `consul_servers.yaml`.
 
-## Cloud Auto-Join
+## Cloud auto-join
 
 Set `consul_cloud_auto_join_enabled: true` and ensure the EC2 instances carry the tag `AutoJoinRole=server`. The IAM instance profile created by Terraform already grants `ec2:DescribeInstances`.
 
 ## Usage
 
-See the top-level playbooks:
+Refer to the top-level playbooks:
 - `ansible/consul_servers.yaml` — configures the `[servers]` group as Consul servers
 - `ansible/consul_clients.yaml` — configures the `[clients]` group as Consul clients
 
@@ -63,8 +61,6 @@ Run the full cluster setup via:
 ansible-playbook -i inventory.ini consul_servers.yaml
 ansible-playbook -i inventory.ini consul_clients.yaml
 ```
-
-Or include both plays via `site.yaml`.
 
 ## Ports
 

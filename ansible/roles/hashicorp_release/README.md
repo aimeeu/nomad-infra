@@ -2,7 +2,7 @@
 
 ## Description
 
-A generic role for downloading and installing HashiCorp products (Nomad, Consul, Vault, etc.) from official HashiCorp releases. This role handles version management, binary installation, and upgrade scenarios.
+A generic role for downloading and installing HashiCorp products (Nomad, Consul, Vault, and others) from official HashiCorp releases. This role handles version management, binary installation, and upgrade scenarios.
 
 ## Features
 
@@ -16,12 +16,12 @@ A generic role for downloading and installing HashiCorp products (Nomad, Consul,
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `hashicorp_release_product_name` | string | `""` | Product name (e.g., "nomad", "consul") |
-| `hashicorp_release_product_version` | string | `""` | Version to install (e.g., "1.11.1") |
+| `hashicorp_release_product_name` | string | `""` | Product name (for example, "nomad" or "consul") |
+| `hashicorp_release_product_version` | string | `""` | Version to install (for example, "2.0.3") |
 | `hashicorp_release_product_install_dir` | string | `/usr/local/bin` | Installation directory |
 | `hashicorp_release_architecture` | string | `amd64` | System architecture |
 
-### Computed Variables
+### Computed variables
 
 The role automatically computes:
 - `hashicorp_release_zip_url`: Download URL based on product, version, and architecture
@@ -50,10 +50,10 @@ This role is used **indirectly** through the nomad role, which includes it to in
     - role: hashicorp_release
       vars:
         hashicorp_release_product_name: "nomad"
-        hashicorp_release_product_version: "1.11.1"
+        hashicorp_release_product_version: "2.0.3"
 ```
 
-### Installing Multiple Products
+### Installing multiple products
 
 ```yaml
 - hosts: servers
@@ -63,7 +63,7 @@ This role is used **indirectly** through the nomad role, which includes it to in
         name: hashicorp_release
       vars:
         hashicorp_release_product_name: "nomad"
-        hashicorp_release_product_version: "1.11.1"
+        hashicorp_release_product_version: "2.0.3"
     
     - name: Install Consul
       ansible.builtin.include_role:
@@ -73,7 +73,7 @@ This role is used **indirectly** through the nomad role, which includes it to in
         hashicorp_release_product_version: "1.22.7"
 ```
 
-## Supported Products
+## Supported products
 
 This role can install any HashiCorp product available at releases.hashicorp.com:
 - Nomad
@@ -84,21 +84,21 @@ This role can install any HashiCorp product available at releases.hashicorp.com:
 - Waypoint
 - Boundary
 
-## Version Management
+## Version management
 
 The role checks if the binary exists and compares versions:
 - If binary doesn't exist → downloads and installs
 - If version matches → skips download
 - If version differs → downloads and upgrades
 
-## Architecture Support
+## Architecture support
 
 Automatically detects system architecture:
 - `amd64` (x86_64)
 - `arm64` (aarch64)
 - `arm` (armv7l)
 
-## Download Process
+## Download process
 
 1. Checks if binary exists at install path
 2. Checks installed version (if exists)
@@ -111,7 +111,7 @@ Automatically detects system architecture:
 
 None - this is a standalone utility role
 
-## Example Scenarios
+## Example scenarios
 
 ### Upgrade Nomad
 
@@ -121,10 +121,10 @@ None - this is a standalone utility role
     - role: hashicorp_release
       vars:
         hashicorp_release_product_name: "nomad"
-        hashicorp_release_product_version: "1.12.0"  # New version
+        hashicorp_release_product_version: "2.0.3"  # New version
 ```
 
-### Install Specific Architecture
+### Install specific architecture
 
 ```yaml
 - hosts: arm_servers
@@ -132,7 +132,7 @@ None - this is a standalone utility role
     - role: hashicorp_release
       vars:
         hashicorp_release_product_name: "nomad"
-        hashicorp_release_product_version: "1.11.1"
+        hashicorp_release_product_version: "2.0.3"
         hashicorp_release_architecture: "arm64"
 ```
 
@@ -145,16 +145,16 @@ None - this is a standalone utility role
 
 ## Troubleshooting
 
-### Download Fails
+### Download fails
 ```bash
 # Check internet connectivity
 curl -I https://releases.hashicorp.com
 
 # Verify URL format
-echo "https://releases.hashicorp.com/nomad/1.11.1/nomad_1.11.1_linux_amd64.zip"
+echo "https://releases.hashicorp.com/nomad/2.0.3/nomad_2.0.3_linux_amd64.zip"
 ```
 
-### Version Not Updating
+### Version not updating
 ```bash
 # Check current version
 nomad version
@@ -163,14 +163,14 @@ nomad version
 sudo rm /usr/local/bin/nomad
 ```
 
-### Permission Denied
+### Permission denied
 ```bash
 # Ensure role runs with become: true
 # Or check install directory permissions
 ls -la /usr/local/bin/
 ```
 
-## Security Considerations
+## Security considerations
 
 - Downloads over HTTPS
 - No checksum verification (consider adding for production)

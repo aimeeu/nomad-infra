@@ -17,13 +17,13 @@ The TLS role generates TLS certificates for secure communication in the Nomad cl
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `tls_path` | string | `{{ playbook_dir }}/.tls` | Directory to store certificates |
+| `tls_path` | string | `{{ inventory_dir }}/.tls` | Directory to store certificates |
 | `tls_ca_generate` | bool | `true` | Generate CA certificate |
 | `tls_ca_pem_filename` | string | `ca.pem` | CA certificate filename |
 | `tls_ca_key_filename` | string | `ca-key.pem` | CA private key filename |
 | `tls_self_signed_generate` | list | `[]` | List of certificates to generate |
 
-### Certificate Generation List Format
+### Certificate generation list format
 
 Each item in `tls_self_signed_generate` should contain:
 ```yaml
@@ -32,12 +32,12 @@ Each item in `tls_self_signed_generate` should contain:
   dns: "server.example.com"   # DNS name for SAN
 ```
 
-## Generated Files
+## Generated files
 
-The role creates the following files in `{{ tls_path }}`:
+The role creates the following files in `{{ tls_path }}` (default: `ansible/.tls/`):
 
 ```
-.tls/
+ansible/.tls/
 ├── ca.pem                           # CA certificate (public)
 ├── ca-key.pem                       # CA private key (sensitive)
 ├── <agent-name>.pem                 # Node certificate (public)
@@ -46,49 +46,45 @@ The role creates the following files in `{{ tls_path }}`:
 
 ## Usage
 
-### In Playbooks
+This role is used in the role list of both server and client playbooks to generate certificates before other roles run. The `when: nomad_tls_enabled` condition ensures the role is skipped when TLS is disabled.
 
-This role is used in **pre_tasks** of both server and client playbooks to generate certificates before other roles run.
-
-**Server Playbook** (`playbooks/nomad_servers.yaml`):
+**Server playbook** (`playbooks/nomad_servers.yaml`):
 ```yaml
-pre_tasks:
-  - name: Generate TLS certificates
-    ansible.builtin.include_role:
-      name: tls
-    vars:
-      tls_self_signed_generate:
-        - agent-name: "{{ inventory_hostname }}"
-          ip: "{{ ansible_default_ipv4.address }}"
-          dns: "{{ inventory_hostname }}"
-    run_once: true
-    delegate_to: localhost
+- role: tls
+  when: nomad_tls_enabled
+- role: tls
+  tls_self_signed_generate:
+  - agent-name: "{{ inventory_hostname }}"
+    ip: "{{ ansible_facts['default_ipv4']['address'] }}"
+    dns: "client.global.nomad"
 ```
 
-**Client Playbook** (`playbooks/nomad_clients.yaml`):
+**Cert distribution** (separate `helper` role call, also in `nomad_servers.yaml`):
 ```yaml
-pre_tasks:
-  - name: Generate TLS certificates
-    ansible.builtin.include_role:
-      name: tls
-    vars:
-      tls_self_signed_generate:
-        - agent-name: "{{ inventory_hostname }}"
-          ip: "{{ ansible_default_ipv4.address }}"
-          dns: "{{ inventory_hostname }}"
-    run_once: true
-    delegate_to: localhost
+- role: helper
+  when: nomad_tls_enabled | bool
+  vars:
+    helper_file_copy_local:
+    - src: "{{ inventory_dir }}/.tls/ca.pem"
+      dst: "/etc/nomad.d/.tls/ca.crt"
+      mode: "0644"
+    - src: "{{ inventory_dir }}/.tls/{{ inventory_hostname }}.pem"
+      dst: "/etc/nomad.d/.tls/nomad.crt"
+      mode: "0644"
+    - src: "{{ inventory_dir }}/.tls/{{ inventory_hostname }}-key.pem"
+      dst: "/etc/nomad.d/.tls/nomad.key"
+      mode: "0600"
 ```
 
-## Certificate Details
+## Certificate details
 
-### CA Certificate
+### CA certificate
 - **Common Name**: "Nomad CA"
 - **Key Usage**: Certificate Signing
 - **Basic Constraints**: CA:TRUE
 - **Validity**: Self-signed
 
-### Node Certificates
+### Node certificates
 - **Subject Alternative Names**:
   - IP: 127.0.0.1 (localhost)
   - IP: Node's IP address
@@ -98,22 +94,11 @@ pre_tasks:
 - **Signed By**: CA certificate
 - **Validity**: 365 days from creation
 
-## Certificate Distribution
+## Certificate distribution
 
-After generation, certificates are distributed by the **helper role**:
+After generation, certificates are distributed by the **helper** role (see `playbooks/nomad_servers.yaml` and `playbooks/nomad_clients.yaml`).
 
-```yaml
-- role: helper
-  vars:
-    helper_file_copy_local:
-      - src: "{{ playbook_dir }}/../.tls/ca.pem"
-        dst: "/etc/nomad.d/.tls/ca.crt"
-      - src: "{{ playbook_dir }}/../.tls/{{ inventory_hostname }}.pem"
-        dst: "/etc/nomad.d/.tls/nomad.crt"
-      - src: "{{ playbook_dir }}/../.tls/{{ inventory_hostname }}-key.pem"
-        dst: "/etc/nomad.d/.tls/nomad.key"
-        mode: "0600"
-```
+Certificates are written to `/etc/nomad.d/.tls/` on each node.
 
 ## Dependencies
 
@@ -124,9 +109,9 @@ Install with:
 ansible-galaxy collection install community.crypto
 ```
 
-## Example Configurations
+## Example configurations
 
-### Generate Certificates for Multiple Nodes
+### Generate certificates for multiple nodes
 
 ```yaml
 - name: Generate TLS certificates
@@ -147,7 +132,7 @@ ansible-galaxy collection install community.crypto
   delegate_to: localhost
 ```
 
-### Custom Certificate Path
+### Custom certificate path
 
 ```yaml
 - name: Generate TLS certificates
@@ -161,24 +146,24 @@ ansible-galaxy collection install community.crypto
         dns: "{{ inventory_hostname }}"
 ```
 
-## Security Considerations
+## Security considerations
 
-### File Permissions
+### File permissions
 - CA private key: Stored locally, should be protected
 - Node private keys: Should have 0600 permissions when copied to nodes
 - Certificates (public): Can have 0644 permissions
 
-### Certificate Validity
+### Certificate validity
 - Certificates are valid for 365 days
 - Plan for certificate rotation before expiry
 - Consider implementing automated renewal
 
-### CA Protection
+### CA protection
 - The CA private key (`ca-key.pem`) can sign new certificates
 - Keep it secure and backed up
 - Consider using a proper PKI for production
 
-## Certificate Rotation
+## Certificate rotation
 
 To rotate certificates:
 
@@ -189,7 +174,7 @@ rm -rf ansible/.tls/
 
 2. **Re-run playbooks**:
 ```bash
-ansible-playbook site.yaml
+ansible-playbook -i inventory.ini deploy_consul_nomad_wi.yaml
 ```
 
 3. **Restart Nomad services**:
@@ -199,7 +184,7 @@ ansible all -b -m systemd -a "name=nomad state=restarted"
 
 ## Troubleshooting
 
-### Certificates Not Generated
+### Certificates not generated
 ```bash
 # Check if community.crypto is installed
 ansible-galaxy collection list | grep community.crypto
@@ -208,10 +193,10 @@ ansible-galaxy collection list | grep community.crypto
 ls -la ansible/.tls/
 
 # Check for errors in playbook output
-ansible-playbook site.yaml -vvv
+ansible-playbook -i inventory.ini deploy_consul_nomad_wi.yaml -vvv
 ```
 
-### Certificate Validation Errors
+### Certificate validation errors
 ```bash
 # Verify certificate
 openssl x509 -in ansible/.tls/server-1.pem -text -noout
@@ -223,7 +208,7 @@ openssl x509 -in ansible/.tls/ca.pem -text -noout
 openssl verify -CAfile ansible/.tls/ca.pem ansible/.tls/server-1.pem
 ```
 
-### SAN Issues
+### SAN issues
 ```bash
 # Check Subject Alternative Names
 openssl x509 -in ansible/.tls/server-1.pem -text -noout | grep -A1 "Subject Alternative Name"

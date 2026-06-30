@@ -1,24 +1,25 @@
 # nomad-infra
 
-Infrastructure-as-Code for deploying a co-located HashiCorp Consul v2.0.1 and Nomad v2.0.0 cluster on AWS using Terraform and Ansible.
+Infrastructure-as-Code for deploying a co-located HashiCorp Consul v2.0.1 and Nomad v2.0.3 cluster on AWS using Terraform and Ansible.
 
 ## Overview
 
 This project provisions a production-ready cluster of **3 servers and 2 clients** on AWS. Every node runs co-located Consul and Nomad agents, providing a service-discovery and service-mesh layer (Consul) alongside a workload-orchestration layer (Nomad) on the same infrastructure.
 
-**[Complete Deployment Guide](DEPLOYMENT.md)** — Step-by-step instructions for deploying your cluster.
+**[Complete Deployment Guide](DEPLOY_CLUSTER_GUIDE.MD)** — Step-by-step instructions for deploying your cluster.
 
-### What Gets Deployed
+### What gets deployed
 
 | Layer | Technology | Version |
 |-------|-----------|---------|
 | Service discovery & mesh | HashiCorp Consul | 2.0.1 |
-| Workload orchestration | HashiCorp Nomad | 2.0.0 |
+| Workload orchestration | HashiCorp Nomad | 2.0.3 |
 | Container runtime | Docker CE | latest |
 | Container networking | CNI plugins | (clients only) |
+| DNS forwarding | dnsmasq | (all nodes) |
 | Operating system | Ubuntu 24.04 LTS | latest AMI |
 
-### Key Features
+### Key features
 
 - **Co-located cluster**: Consul and Nomad agents run side-by-side on every node
 - **Consul Cloud Auto-Join**: Consul discovers peers automatically using the `AutoJoinRole` EC2 tag — no hardcoded IPs
@@ -26,6 +27,8 @@ This project provisions a production-ready cluster of **3 servers and 2 clients*
 - **IAM-powered discovery**: EC2 instance profiles grant least-privilege `ec2:DescribeInstances` access for Consul Cloud Auto-Join
 - **TLS-ready**: Certificate generation and distribution are wired in; enable per-playbook with `nomad_tls_enabled: true` / `consul_tls_enabled: true`
 - **ACL-ready**: Consul ACLs are enabled on servers by default; Nomad ACLs are enabled on all nodes by default; each has a dedicated bootstrap playbook
+- **Consul service discovery**: Nomad integrates with Consul using Workload Identities (JWT-based, Nomad 1.7+) — no shared static tokens; Nomad services and tasks obtain scoped Consul ACL tokens automatically
+- **dnsmasq DNS forwarding**: Every node runs dnsmasq to forward `.consul` DNS queries to the local Consul agent, enabling service address resolution for all processes
 - **CNI + Docker**: Clients install CNI plugins and Docker CE for containerized workloads
 - **Idempotent**: Safe to re-run Terraform and Ansible repeatedly
 
@@ -69,42 +72,42 @@ graph TB
     Internet --> IGW --> Subnet
 ```
 
-### Node Roles
+### Node roles
 
 | Node type | Consul agent | Nomad agent | Docker | CNI plugins |
 |-----------|-------------|------------|--------|-------------|
 | Server (×3) | Server | Server | ✓ | — |
 | Client (×2) | Client | Client | ✓ | ✓ |
 
-### Cluster Discovery
+### Cluster discovery
 
 | Service | Discovery method |
 |---------|----------------|
 | Consul | AWS Cloud Auto-Join — queries EC2 API for instances tagged `AutoJoinRole=server` |
 | Nomad | Static `server_join.retry_join` — private IPs from the `[servers]` inventory group |
 
-### Open Ports
+### Open ports
 
 | Port | Protocol | Service | Accessible from |
 |------|----------|---------|----------------|
 | 22 | TCP | SSH | `allowed_ssh_cidr` |
-| 8500 | TCP | Consul HTTP API & UI | 0.0.0.0/0 ⚠️ |
+| 8500 | TCP | Consul HTTP API & UI | 0.0.0.0/0 |
 | 8300 | TCP | Consul RPC | Internal (security group) |
 | 8301 | TCP/UDP | Consul Serf LAN | Internal (security group) |
-| 4646 | TCP | Nomad HTTP API & UI | 0.0.0.0/0 ⚠️ |
+| 4646 | TCP | Nomad HTTP API & UI | 0.0.0.0/0 |
 | all | all | Internal cluster traffic | Internal (security group) |
 
-⚠️ Restrict these in production. See [ansible/README-SECURITY-GROUP.md](ansible/README-SECURITY-GROUP.md).
+Restrict these in production. Refer to [ansible/README-SECURITY-GROUP.md](ansible/README-SECURITY-GROUP.md).
 
 ## Prerequisites
 
-### Required Tools
+### Required tools
 
 - **Terraform** ≥ 1.0
 - **Ansible** ≥ 2.14
 - **AWS CLI** configured with credentials that can manage EC2, VPC, IAM, and key pairs
 
-### Ansible Collections and Roles
+### Ansible collections and roles
 
 Install before running any playbook:
 
@@ -113,9 +116,9 @@ cd ansible
 ansible-galaxy install -r requirements.yaml
 ```
 
-## Quick Start
+## Quick start
 
-**For full step-by-step instructions, see [DEPLOYMENT.md](DEPLOYMENT.md).**
+**For full step-by-step instructions, see [DEPLOY_CLUSTER_GUIDE.MD](DEPLOY_CLUSTER_GUIDE.MD).**
 
 ### 1. Provision infrastructure
 
@@ -138,64 +141,82 @@ cd ansible
 ansible-galaxy install -r requirements.yaml
 ```
 
-### 3. Deploy Consul and Nomad — full cluster
+### 3. Choose a deployment scenario
+
+| Playbook | What it deploys | Use when |
+|----------|----------------|----------|
+| [`deploy_consul.yaml`](ansible/deploy_consul.yaml) | Consul servers + clients + ACL + dnsmasq | Consul-only service mesh or DNS |
+| [`deploy_nomad.yaml`](ansible/deploy_nomad.yaml) | Nomad servers + clients + ACL | Nomad-only workload orchestration |
+| [`deploy_consul_nomad_sd.yaml`](ansible/deploy_consul_nomad_sd.yaml) | Consul + Nomad + service discovery | Nomad registers services and health checks via Consul |
+| [`deploy_consul_nomad_wi.yaml`](ansible/deploy_consul_nomad_wi.yaml) | Consul + Nomad + service discovery + workload identity | Nomad workloads obtain scoped Consul tokens automatically |
+
+Each playbook configures all hosts, tests Ansible connectivity, deploys the named services, and prints a cluster status summary with access tokens and environment variable export commands. Refer to [ansible/PLAYBOOKS-README.md](ansible/PLAYBOOKS-README.md) for full details on each scenario.
+
+#### Use case 1: Consul cluster only
+
+Deploys Consul servers and clients, bootstraps Consul ACL, and configures dnsmasq for `.consul` DNS forwarding on all nodes.
 
 ```bash
-ansible-playbook -i inventory.ini site.yaml
+ansible-playbook -i inventory.ini deploy_consul.yaml
 ```
 
-`site.yaml` runs the playbooks in dependency order:
+#### Use case 2: Nomad cluster only
 
-1. `consul_servers.yaml` — installs and starts Consul server agents
-2. `consul_clients.yaml` — installs and starts Consul client agents
-3. `nomad_servers.yaml` — installs and starts Nomad server agents
-4. `nomad_clients.yaml` — installs and starts Nomad client agents
-
-### 4. Deploy Consul only
+Deploys Nomad servers and clients and bootstraps Nomad ACL. No Consul integration.
 
 ```bash
-ansible-playbook -i inventory.ini consul_servers.yaml
-ansible-playbook -i inventory.ini consul_clients.yaml
+ansible-playbook -i inventory.ini deploy_nomad.yaml
 ```
 
-### 5. Deploy Nomad only (Consul must already be running)
+#### Use case 3: Consul + Nomad with service discovery
+
+Deploys a full Consul cluster and a full Nomad cluster, then configures Consul ACL policies and Nomad agent tokens so Nomad uses Consul for service registration and health checks.
 
 ```bash
-ansible-playbook -i inventory.ini nomad_servers.yaml
-ansible-playbook -i inventory.ini nomad_clients.yaml
+ansible-playbook -i inventory.ini deploy_consul_nomad_sd.yaml
 ```
 
-### 6. Bootstrap ACLs (optional, post-cluster)
+#### Use case 4: Consul + Nomad with service discovery and workload identity
+
+Extends use case 3 by configuring a Consul JWT auth method and adding `service_identity`/`task_identity` blocks to Nomad server configuration. Nomad workloads exchange a short-lived JWT for a scoped Consul ACL token at runtime — no static secrets required in job files.
 
 ```bash
-# Consul ACLs (consul_acl_enabled: true is set in consul_servers.yaml)
-ansible-playbook -i inventory.ini consul_acl_bootstrap.yaml
-
-# Nomad ACLs (nomad_acl_enabled: true is set in both nomad playbooks)
-ansible-playbook -i inventory.ini nomad_acl_bootstrap.yaml
+ansible-playbook -i inventory.ini deploy_consul_nomad_wi.yaml
 ```
 
-### 7. Access the cluster
+### 4. Set environment variables
+
+After any deployment, source the helper script from the `ansible/` directory:
+
+```bash
+cd ansible
+source ./set-cluster-env.sh
+
+# To unset:
+source ./unset-cluster-env.sh
+```
+
+The script reads the first server IP from `inventory.ini` and the bootstrap token values from the `ansible/tokens/` directory. It skips variables whose token files are not present, so it works correctly for all four deployment scenarios.
+
+To set variables manually:
+
+```bash
+export CONSUL_HTTP_ADDR=http://<server-ip>:8500
+export CONSUL_HTTP_TOKEN=$(cat ansible/tokens/consul-bootstrap-secret-id.txt)
+export NOMAD_ADDR=http://<server-ip>:4646
+export NOMAD_TOKEN=$(cat ansible/tokens/nomad-bootstrap-secret-id.txt)
+```
+
+### 5. Access the cluster
 
 | Service | URL |
 |---------|-----|
 | Consul UI | `http://<server-ip>:8500/ui` |
 | Nomad UI | `http://<server-ip>:4646` |
 
-Set environment variables for CLI access:
-
-```bash
-export CONSUL_HTTP_ADDR=http://<server-ip>:8500
-export NOMAD_ADDR=http://<server-ip>:4646
-
-# If ACLs are enabled:
-export CONSUL_HTTP_TOKEN=$(cat ansible/consul-bootstrap-secret-id.txt)
-export NOMAD_TOKEN=$(cat ansible/nomad-bootstrap-secret-id.txt)
-```
-
 ## Configuration
 
-### Terraform Variables
+### Terraform variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -205,15 +226,15 @@ export NOMAD_TOKEN=$(cat ansible/nomad-bootstrap-secret-id.txt)
 | `environment` | `dev` | Environment tag |
 | `vpc_cidr` | `10.0.0.0/16` | VPC CIDR block |
 | `subnet_cidr` | `10.0.1.0/24` | Public subnet CIDR |
-| `allowed_ssh_cidr` | `0.0.0.0/0` ⚠️ | CIDR allowed for SSH |
+| `allowed_ssh_cidr` | `0.0.0.0/0` | CIDR allowed for SSH |
 | `server_count` | `3` | Number of server EC2 instances |
 | `client_count` | `2` | Number of client EC2 instances |
 | `server_instance_type` | `t3.medium` | Server EC2 instance type |
 | `client_instance_type` | `t3.medium` | Client EC2 instance type |
 
-⚠️ Always set `allowed_ssh_cidr` to your specific IP address or network range.
+Always set `allowed_ssh_cidr` to your specific IP address or network range.
 
-### Ansible Variables — Consul
+### Ansible variables — Consul
 
 Defaults: [`ansible/roles/consul/defaults/main.yaml`](ansible/roles/consul/defaults/main.yaml)
 
@@ -227,13 +248,13 @@ Defaults: [`ansible/roles/consul/defaults/main.yaml`](ansible/roles/consul/defau
 | `consul_acl_enabled` | `false` | Enable ACLs |
 | `consul_tls_enabled` | `false` | Enable TLS |
 
-### Ansible Variables — Nomad
+### Ansible variables — Nomad
 
 Defaults: [`ansible/roles/nomad/defaults/main.yaml`](ansible/roles/nomad/defaults/main.yaml)
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `nomad_binary_version` | `2.0.0` | Nomad release to install |
+| `nomad_binary_version` | `2.0.3` | Nomad release to install |
 | `nomad_server_enabled` | `false` | Enable server mode |
 | `nomad_server_bootstrap_expect` | `3` | Quorum size |
 | `nomad_client_enabled` | `false` | Enable client mode |
@@ -242,7 +263,7 @@ Defaults: [`ansible/roles/nomad/defaults/main.yaml`](ansible/roles/nomad/default
 | `nomad_tls_enabled` | `false` | Enable TLS |
 | `nomad_log_level` | `DEBUG` | Log level |
 
-## Network Security
+## Network security
 
 The security group allows:
 
@@ -252,9 +273,9 @@ The security group allows:
 - **All internal traffic**: Between instances sharing the security group
 - **Egress**: All outbound traffic allowed
 
-See [ansible/README-SECURITY-GROUP.md](ansible/README-SECURITY-GROUP.md) for hardening guidance.
+Refer to [ansible/README-SECURITY-GROUP.md](ansible/README-SECURITY-GROUP.md) for hardening guidance.
 
-## IAM Permissions
+## IAM permissions
 
 Every EC2 instance receives an IAM instance profile with the following permissions for Consul Cloud Auto-Join:
 
@@ -262,12 +283,12 @@ Every EC2 instance receives an IAM instance profile with the following permissio
 - `ec2:DescribeTags`
 - `autoscaling:DescribeAutoScalingGroups`
 
-## Project Structure
+## Project structure
 
 ```
 nomad-infra/
 ├── README.md                             # This file
-├── DEPLOYMENT.md                         # Full deployment walkthrough
+├── DEPLOY_CLUSTER_GUIDE.MD                         # Full deployment walkthrough
 ├── AGENTS.md                             # Coding agent guidelines
 ├── terraform/
 │   └── aws/
@@ -287,15 +308,28 @@ nomad-infra/
     ├── requirements.yaml                 # Galaxy roles (geerlingguy.docker)
     ├── inventory.ini                     # Auto-generated by Terraform
     ├── ssh_key.pem                       # Auto-generated SSH private key
-    ├── site.yaml                         # Full cluster playbook (recommended)
-    ├── consul_servers.yaml               # Consul server configuration
-    ├── consul_clients.yaml               # Consul client configuration
-    ├── consul_acl_bootstrap.yaml         # Consul ACL bootstrap
-    ├── consul_acl_remove_anonymous.yaml  # Remove Consul anonymous token
-    ├── nomad_servers.yaml                # Nomad server configuration
-    ├── nomad_clients.yaml                # Nomad client configuration
-    ├── nomad_acl_bootstrap.yaml          # Nomad ACL bootstrap
-    ├── update-security-group.yaml        # Security group maintenance
+    ├── deploy_consul.yaml                # Use case: Consul cluster only
+    ├── deploy_nomad.yaml                 # Use case: Nomad cluster only
+    ├── deploy_consul_nomad_sd.yaml       # Use case: Consul + Nomad + service discovery
+    ├── deploy_consul_nomad_wi.yaml       # Use case: Consul + Nomad + SD + workload identity
+    ├── teardown.yaml                     # Teardown playbook
+    ├── set-cluster-env.sh                # Source to set CONSUL/NOMAD env vars
+    ├── unset-cluster-env.sh              # Source to unset CONSUL/NOMAD env vars
+    ├── tokens/                           # ACL bootstrap token files (auto-created, git-ignored)
+    ├── playbooks/                        # Sub-playbooks (imported by use case entrypoints)
+    │   ├── consul_servers.yaml           # Consul server configuration
+    │   ├── consul_clients.yaml           # Consul client configuration
+    │   ├── consul_acl_bootstrap.yaml     # Consul ACL bootstrap
+    │   ├── consul_acl_remove_anonymous.yaml  # Remove Consul anonymous token
+    │   ├── consul_nomad_integration.yaml # Consul-Nomad integration orchestrator
+    │   ├── consul_nomad_service_discovery.yaml  # Consul ACL policies + Nomad tokens
+    │   ├── consul_nomad_workload_identity.yaml  # JWT auth method + binding rules
+    │   ├── nomad_servers.yaml            # Nomad server configuration
+    │   ├── nomad_clients.yaml            # Nomad client configuration
+    │   ├── nomad_acl_bootstrap.yaml      # Nomad ACL bootstrap
+    │   ├── dnsmasq.yaml                  # dnsmasq DNS forwarding
+    │   ├── cluster_summary.yaml          # Cluster status and token summary
+    │   └── common_setup.yaml             # Shared host pre-tasks
     ├── PLAYBOOKS-README.md               # Playbook reference
     ├── BOOTSTRAP_ACL_EXAMPLE.md          # ACL bootstrap walkthrough
     ├── README-SECURITY-GROUP.md          # Security group hardening guide
@@ -306,10 +340,11 @@ nomad-infra/
         ├── helper/                       # File and package utilities
         ├── consul/                       # Consul install and configure
         ├── nomad/                        # Nomad install and configure
+        ├── nomad_consul/                 # Consul ACL resources for Nomad integration
         └── tls/                          # TLS certificate generation
 ```
 
-## Sensitive Files
+## Sensitive files
 
 The following files are git-ignored and must never be committed:
 
@@ -317,10 +352,14 @@ The following files are git-ignored and must never be committed:
 |------|----------|
 | `ansible/ssh_key.pem` | SSH private key for all EC2 instances |
 | `ansible/.tls/` | Generated TLS certificates |
-| `ansible/consul-bootstrap-token-output.txt` | Consul management ACL token |
-| `ansible/consul-bootstrap-secret-id.txt` | Consul ACL SecretID |
-| `ansible/nomad-bootstrap-token-output.txt` | Nomad management ACL token |
-| `ansible/nomad-bootstrap-secret-id.txt` | Nomad ACL SecretID |
+| `ansible/tokens/consul-bootstrap-token-output.txt` | Consul management ACL token |
+| `ansible/tokens/consul-bootstrap-secret-id.txt` | Consul ACL SecretID |
+| `ansible/tokens/nomad-bootstrap-token-output.txt` | Nomad management ACL token |
+| `ansible/tokens/nomad-bootstrap-secret-id.txt` | Nomad ACL SecretID |
+| `ansible/tokens/nomad-consul-server-token-output.txt` | Full Consul token output for Nomad server agents |
+| `ansible/tokens/nomad-consul-server-secret-id.txt` | Consul token SecretID for Nomad server agents |
+| `ansible/tokens/nomad-consul-client-token-output.txt` | Full Consul token output for Nomad client agents |
+| `ansible/tokens/nomad-consul-client-secret-id.txt` | Consul token SecretID for Nomad client agents |
 | `terraform/aws/terraform.tfvars` | AWS credentials and configuration |
 
 ## Cleanup
