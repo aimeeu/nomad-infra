@@ -174,7 +174,7 @@ rm -rf ansible/.tls/
 
 2. **Re-run playbooks**:
 ```bash
-ansible-playbook site.yaml
+ansible-playbook -i inventory.ini deploy_consul_nomad_wi.yaml
 ```
 
 3. **Restart Nomad services**:
@@ -193,7 +193,7 @@ ansible-galaxy collection list | grep community.crypto
 ls -la ansible/.tls/
 
 # Check for errors in playbook output
-ansible-playbook site.yaml -vvv
+ansible-playbook -i inventory.ini deploy_consul_nomad_wi.yaml -vvv
 ```
 
 ### Certificate validation errors

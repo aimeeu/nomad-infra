@@ -353,11 +353,14 @@ ansible-galaxy install -r requirements.yaml
 
 ### Configure entire cluster
 
-```bash
-ansible-playbook site.yaml
-```
+Choose the use case entrypoint that matches your requirements:
 
-This runs both server and client playbooks in sequence.
+```bash
+ansible-playbook -i inventory.ini deploy_consul.yaml            # Consul only
+ansible-playbook -i inventory.ini deploy_nomad.yaml            # Nomad only
+ansible-playbook -i inventory.ini deploy_consul_nomad_sd.yaml  # Consul + Nomad + service discovery
+ansible-playbook -i inventory.ini deploy_consul_nomad_wi.yaml  # Consul + Nomad + workload identity
+```
 
 ### Configure only servers
 
@@ -400,29 +403,29 @@ ansible all -b -a "journalctl -u nomad -n 50"
 
 ```bash
 # Install a different Nomad version
-ansible-playbook site.yaml -e "nomad_binary_version=2.0.3"
+ansible-playbook -i inventory.ini deploy_consul_nomad_wi.yaml -e "nomad_binary_version=2.0.3"
 
 # Enable ACLs
-ansible-playbook site.yaml -e "nomad_acl_enabled=true"
+ansible-playbook -i inventory.ini deploy_consul_nomad_wi.yaml -e "nomad_acl_enabled=true"
 
 # Change log level
-ansible-playbook site.yaml -e "nomad_log_level=DEBUG"
+ansible-playbook -i inventory.ini deploy_consul_nomad_wi.yaml -e "nomad_log_level=DEBUG"
 
 # Use specific inventory file
-ansible-playbook site.yaml -i custom_inventory.ini
+ansible-playbook -i custom_inventory.ini deploy_consul_nomad_wi.yaml
 ```
 
 ### Limit execution to specific hosts
 
 ```bash
 # Configure only server-1
-ansible-playbook site.yaml --limit server-1
+ansible-playbook -i inventory.ini deploy_consul_nomad_wi.yaml --limit server-1
 
 # Configure only clients
-ansible-playbook site.yaml --limit clients
+ansible-playbook -i inventory.ini deploy_consul_nomad_wi.yaml --limit clients
 
 # Configure specific hosts
-ansible-playbook site.yaml --limit "server-1,client-1"
+ansible-playbook -i inventory.ini deploy_consul_nomad_wi.yaml --limit "server-1,client-1"
 ```
 
 ## Customization
@@ -486,7 +489,7 @@ post_tasks:
 nomad_binary_version: "2.0.3"
 
 # Or override via command line
-ansible-playbook site.yaml -e "nomad_binary_version=2.0.3"
+ansible-playbook -i inventory.ini deploy_consul_nomad_wi.yaml -e "nomad_binary_version=2.0.3"
 ```
 
 ## Troubleshooting
@@ -560,18 +563,18 @@ ansible all -b -a "journalctl -u nomad | grep 'auto-join'"
 
 ```bash
 # Run with verbose output
-ansible-playbook site.yaml -v    # Basic verbosity
-ansible-playbook site.yaml -vv   # More verbosity
-ansible-playbook site.yaml -vvv  # Maximum verbosity
+ansible-playbook -i inventory.ini deploy_consul.yaml -v    # Basic verbosity
+ansible-playbook -i inventory.ini deploy_consul.yaml -vv   # More verbosity
+ansible-playbook -i inventory.ini deploy_consul.yaml -vvv  # Maximum verbosity
 
 # Check syntax without running
-ansible-playbook site.yaml --syntax-check
+ansible-playbook -i inventory.ini deploy_consul.yaml --syntax-check
 
 # Dry run (check mode)
-ansible-playbook site.yaml --check
+ansible-playbook -i inventory.ini deploy_consul.yaml --check
 
 # Step through tasks
-ansible-playbook site.yaml --step
+ansible-playbook -i inventory.ini deploy_consul.yaml --step
 ```
 
 ### Common issues

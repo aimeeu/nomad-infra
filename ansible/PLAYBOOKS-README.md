@@ -25,13 +25,11 @@ flowchart TD
     DEPS --> D2["deploy_nomad.yaml"]
     DEPS --> D3["deploy_consul_nomad_sd.yaml"]
     DEPS --> D4["deploy_consul_nomad_wi.yaml"]
-    DEPS --> S["site.yaml"]
 
     D1 -->|"consul stack"| ENV
     D2 -->|"nomad stack"| ENV
     D3 -->|"consul + nomad stacks + service discovery"| ENV
-    D4 -->|"consul + nomad stacks + service discovery + workload identity"| ENV
-    S -->|"all phases"| ENV(["source ./set-cluster-env.sh"])
+    D4 -->|"consul + nomad stacks + service discovery + workload identity"| ENV(["source ./set-cluster-env.sh"])
 ```
 
 **Rules:**

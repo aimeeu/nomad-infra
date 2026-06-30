@@ -62,8 +62,6 @@ ansible-playbook -i inventory.ini consul_servers.yaml
 ansible-playbook -i inventory.ini consul_clients.yaml
 ```
 
-Or include both plays via `site.yaml`.
-
 ## Ports
 
 | Port | Protocol | Purpose |

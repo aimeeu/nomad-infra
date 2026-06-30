@@ -184,14 +184,6 @@ Extends use case 3 by configuring a Consul JWT auth method and adding `service_i
 ansible-playbook -i inventory.ini deploy_consul_nomad_wi.yaml
 ```
 
-#### Full cluster (site.yaml)
-
-`site.yaml` runs all phases — Consul, Nomad, service discovery, and workload identity — in dependency order:
-
-```bash
-ansible-playbook -i inventory.ini site.yaml
-```
-
 ### 4. Set environment variables
 
 After any deployment, source the helper script from the `ansible/` directory:
