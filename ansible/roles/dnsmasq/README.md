@@ -24,7 +24,7 @@ dnsmasq (127.0.0.1:53)
     │
     ├── .consul queries ──►  Consul agent DNS (127.0.0.1:8600)
     │
-    └── all other queries ──►  Upstream DNS (e.g. 169.254.169.253 on AWS)
+    └── all other queries ──►  Upstream DNS (for example, 169.254.169.253 on AWS)
 ```
 
 ## Prerequisites

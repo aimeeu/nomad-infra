@@ -1,4 +1,4 @@
-# Nomad + Consul Cluster Deployment Guide
+# Nomad + Consul cluster deployment guide
 
 Step-by-step instructions for deploying the co-located HashiCorp Consul v2.0.1 and Nomad v2.0.0 cluster on AWS.
 
@@ -54,7 +54,7 @@ cd ansible
 ansible-galaxy install -r requirements.yaml
 ```
 
-## AWS Credentials
+## AWS credentials
 
 ```bash
 # Option 1: AWS CLI
@@ -74,7 +74,7 @@ aws sts get-caller-identity
 
 ---
 
-## Phase 1: Infrastructure Provisioning (Terraform)
+## Phase 1: Infrastructure provisioning (Terraform)
 
 ### Step 1: Configure variables
 
@@ -94,7 +94,7 @@ environment          = "dev"
 vpc_cidr             = "10.0.0.0/16"
 subnet_cidr          = "10.0.1.0/24"
 
-# ⚠️ IMPORTANT: restrict to your IP
+# IMPORTANT: restrict to your IP
 allowed_ssh_cidr     = "YOUR_IP/32"
 
 server_count         = 3   # Use odd numbers: 3, 5, or 7
@@ -166,7 +166,7 @@ ansible all -m ping -vvv
 
 ---
 
-## Phase 2: Cluster Configuration (Ansible)
+## Phase 2: Cluster configuration (Ansible)
 
 All Ansible commands are run from the `ansible/` directory with `-i inventory.ini`.
 
@@ -308,7 +308,7 @@ Post-task: waits for Nomad HTTP API on port 4646.
 
 ---
 
-## Phase 3: ACL Bootstrap (Optional)
+## Phase 3: ACL bootstrap (optional)
 
 Both Consul servers and all Nomad nodes have ACLs enabled by default in their playbooks. The bootstrap must be run **once**, after the cluster is first formed.
 
@@ -360,7 +360,7 @@ nomad acl token self
 
 ---
 
-## Post-Deployment Verification
+## Post-deployment verification
 
 SSH to a server to run the verification commands:
 
@@ -520,7 +520,7 @@ aws ec2 delete-key-pair --key-name nomad-consul-key
 
 ### Terraform: InsufficientInstanceCapacity
 
-Try a different availability zone or instance type (e.g., `t3a.medium`), or wait a few minutes and retry.
+Try a different availability zone or instance type (for example, `t3a.medium`), or wait a few minutes and retry.
 
 ---
 

@@ -8,7 +8,7 @@ This project provisions a production-ready cluster of **3 servers and 2 clients*
 
 **[Complete Deployment Guide](DEPLOYMENT.md)** — Step-by-step instructions for deploying your cluster.
 
-### What Gets Deployed
+### What gets deployed
 
 | Layer | Technology | Version |
 |-------|-----------|---------|
@@ -19,7 +19,7 @@ This project provisions a production-ready cluster of **3 servers and 2 clients*
 | DNS forwarding | dnsmasq | (all nodes) |
 | Operating system | Ubuntu 24.04 LTS | latest AMI |
 
-### Key Features
+### Key features
 
 - **Co-located cluster**: Consul and Nomad agents run side-by-side on every node
 - **Consul Cloud Auto-Join**: Consul discovers peers automatically using the `AutoJoinRole` EC2 tag — no hardcoded IPs
@@ -72,42 +72,42 @@ graph TB
     Internet --> IGW --> Subnet
 ```
 
-### Node Roles
+### Node roles
 
 | Node type | Consul agent | Nomad agent | Docker | CNI plugins |
 |-----------|-------------|------------|--------|-------------|
 | Server (×3) | Server | Server | ✓ | — |
 | Client (×2) | Client | Client | ✓ | ✓ |
 
-### Cluster Discovery
+### Cluster discovery
 
 | Service | Discovery method |
 |---------|----------------|
 | Consul | AWS Cloud Auto-Join — queries EC2 API for instances tagged `AutoJoinRole=server` |
 | Nomad | Static `server_join.retry_join` — private IPs from the `[servers]` inventory group |
 
-### Open Ports
+### Open ports
 
 | Port | Protocol | Service | Accessible from |
 |------|----------|---------|----------------|
 | 22 | TCP | SSH | `allowed_ssh_cidr` |
-| 8500 | TCP | Consul HTTP API & UI | 0.0.0.0/0 ⚠️ |
+| 8500 | TCP | Consul HTTP API & UI | 0.0.0.0/0 |
 | 8300 | TCP | Consul RPC | Internal (security group) |
 | 8301 | TCP/UDP | Consul Serf LAN | Internal (security group) |
-| 4646 | TCP | Nomad HTTP API & UI | 0.0.0.0/0 ⚠️ |
+| 4646 | TCP | Nomad HTTP API & UI | 0.0.0.0/0 |
 | all | all | Internal cluster traffic | Internal (security group) |
 
-⚠️ Restrict these in production. See [ansible/README-SECURITY-GROUP.md](ansible/README-SECURITY-GROUP.md).
+Restrict these in production. See [ansible/README-SECURITY-GROUP.md](ansible/README-SECURITY-GROUP.md).
 
 ## Prerequisites
 
-### Required Tools
+### Required tools
 
 - **Terraform** ≥ 1.0
 - **Ansible** ≥ 2.14
 - **AWS CLI** configured with credentials that can manage EC2, VPC, IAM, and key pairs
 
-### Ansible Collections and Roles
+### Ansible collections and roles
 
 Install before running any playbook:
 
@@ -116,7 +116,7 @@ cd ansible
 ansible-galaxy install -r requirements.yaml
 ```
 
-## Quick Start
+## Quick start
 
 **For full step-by-step instructions, see [DEPLOYMENT.md](DEPLOYMENT.md).**
 
@@ -224,7 +224,7 @@ export NOMAD_TOKEN=$(cat ansible/nomad-bootstrap-secret-id.txt)
 
 ## Configuration
 
-### Terraform Variables
+### Terraform variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -234,15 +234,15 @@ export NOMAD_TOKEN=$(cat ansible/nomad-bootstrap-secret-id.txt)
 | `environment` | `dev` | Environment tag |
 | `vpc_cidr` | `10.0.0.0/16` | VPC CIDR block |
 | `subnet_cidr` | `10.0.1.0/24` | Public subnet CIDR |
-| `allowed_ssh_cidr` | `0.0.0.0/0` ⚠️ | CIDR allowed for SSH |
+| `allowed_ssh_cidr` | `0.0.0.0/0` | CIDR allowed for SSH |
 | `server_count` | `3` | Number of server EC2 instances |
 | `client_count` | `2` | Number of client EC2 instances |
 | `server_instance_type` | `t3.medium` | Server EC2 instance type |
 | `client_instance_type` | `t3.medium` | Client EC2 instance type |
 
-⚠️ Always set `allowed_ssh_cidr` to your specific IP address or network range.
+Always set `allowed_ssh_cidr` to your specific IP address or network range.
 
-### Ansible Variables — Consul
+### Ansible variables — Consul
 
 Defaults: [`ansible/roles/consul/defaults/main.yaml`](ansible/roles/consul/defaults/main.yaml)
 
@@ -256,7 +256,7 @@ Defaults: [`ansible/roles/consul/defaults/main.yaml`](ansible/roles/consul/defau
 | `consul_acl_enabled` | `false` | Enable ACLs |
 | `consul_tls_enabled` | `false` | Enable TLS |
 
-### Ansible Variables — Nomad
+### Ansible variables — Nomad
 
 Defaults: [`ansible/roles/nomad/defaults/main.yaml`](ansible/roles/nomad/defaults/main.yaml)
 
@@ -271,7 +271,7 @@ Defaults: [`ansible/roles/nomad/defaults/main.yaml`](ansible/roles/nomad/default
 | `nomad_tls_enabled` | `false` | Enable TLS |
 | `nomad_log_level` | `DEBUG` | Log level |
 
-## Network Security
+## Network security
 
 The security group allows:
 
@@ -283,7 +283,7 @@ The security group allows:
 
 See [ansible/README-SECURITY-GROUP.md](ansible/README-SECURITY-GROUP.md) for hardening guidance.
 
-## IAM Permissions
+## IAM permissions
 
 Every EC2 instance receives an IAM instance profile with the following permissions for Consul Cloud Auto-Join:
 
@@ -291,7 +291,7 @@ Every EC2 instance receives an IAM instance profile with the following permissio
 - `ec2:DescribeTags`
 - `autoscaling:DescribeAutoScalingGroups`
 
-## Project Structure
+## Project structure
 
 ```
 nomad-infra/
@@ -344,7 +344,7 @@ nomad-infra/
         └── tls/                          # TLS certificate generation
 ```
 
-## Sensitive Files
+## Sensitive files
 
 The following files are git-ignored and must never be committed:
 

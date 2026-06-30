@@ -1,4 +1,4 @@
-# Nomad ACL Bootstrap Example
+# Nomad ACL bootstrap example
 
 This guide demonstrates how to bootstrap the Nomad ACL system using the `nomad_acl_bootstrap.yaml` playbook.
 
@@ -8,7 +8,7 @@ This guide demonstrates how to bootstrap the Nomad ACL system using the `nomad_a
 2. ACLs enabled in Nomad configuration (`nomad_acl_enabled: true`)
 3. Ansible inventory configured
 
-## Step 1: Enable ACLs in Playbook
+## Step 1: Enable ACLs in playbook
 
 Edit your server playbook to enable ACLs:
 
@@ -21,7 +21,7 @@ Edit your server playbook to enable ACLs:
     nomad_server_bootstrap_expect: 3
 ```
 
-## Step 2: Deploy Cluster with ACLs Enabled
+## Step 2: Deploy cluster with ACLs enabled
 
 ```bash
 cd ansible
@@ -29,7 +29,7 @@ ansible-playbook playbooks/nomad_servers.yaml
 ansible-playbook playbooks/nomad_clients.yaml
 ```
 
-## Step 3: Bootstrap ACL System
+## Step 3: Bootstrap ACL system
 
 Run the bootstrap playbook:
 
@@ -64,7 +64,7 @@ ok: [server-1] => {
 }
 ```
 
-## Step 4: Use the Bootstrap Token
+## Step 4: Use the bootstrap token
 
 ### Option A: Export as Environment Variable
 
@@ -89,11 +89,11 @@ address = "http://your-server-ip:4646"
 token   = "12345678-1234-1234-1234-123456789abc"
 ```
 
-## Step 5: Create Additional ACL Tokens
+## Step 5: Create additional ACL tokens
 
 Once bootstrapped, create tokens for different use cases:
 
-### Create a Read-Only Token
+### Create a read-only token
 
 ```bash
 # Create policy file
@@ -110,7 +110,7 @@ nomad acl policy apply readonly-policy readonly-policy.hcl
 nomad acl token create -name="readonly-token" -policy=readonly-policy
 ```
 
-### Create a Developer Token
+### Create a developer token
 
 ```bash
 # Create policy file
@@ -127,11 +127,11 @@ nomad acl policy apply developer-policy developer-policy.hcl
 nomad acl token create -name="developer-token" -policy=developer-policy
 ```
 
-## Token Files
+## Token files
 
 After bootstrap, you'll have two files:
 
-### 1. nomad_bootstrap_token.txt (Full Details)
+### 1. nomad_bootstrap_token.txt (full details)
 
 ```
 Nomad ACL Bootstrap Token
@@ -159,7 +159,7 @@ Or use with commands:
   nomad status -token=12345678-1234-1234-1234-123456789abc
 ```
 
-### 2. nomad_bootstrap_secret_id.txt (Token Only)
+### 2. nomad_bootstrap_secret_id.txt (token only)
 
 ```
 12345678-1234-1234-1234-123456789abc
@@ -167,7 +167,7 @@ Or use with commands:
 
 ## Troubleshooting
 
-### ACL System Already Bootstrapped
+### ACL system already bootstrapped
 
 If you run the playbook again, you'll see:
 
@@ -193,7 +193,7 @@ ok: [server-1] => {
 }
 ```
 
-### Lost Bootstrap Token
+### Lost bootstrap token
 
 If you lose the bootstrap token and the ACL system is already bootstrapped:
 
@@ -213,7 +213,7 @@ If you lose the bootstrap token and the ACL system is already bootstrapped:
    ansible-playbook playbooks/nomad_acl_bootstrap.yaml
    ```
 
-### ACLs Not Enabled
+### ACLs not enabled
 
 If ACLs are not enabled in the Nomad configuration:
 
@@ -232,11 +232,11 @@ fatal: [server-1]: FAILED! => {
     nomad_acl_enabled: true
 ```
 
-## Security Best Practices
+## Security best practices
 
 1. **Secure Token Storage**:
    - Keep token files in a secure location
-   - Use a secrets manager (Vault, AWS Secrets Manager, etc.)
+   - Use a secrets manager (Vault, AWS Secrets Manager, and similar tools)
    - Never commit tokens to version control
 
 2. **Principle of Least Privilege**:
@@ -253,7 +253,7 @@ fatal: [server-1]: FAILED! => {
    - Monitor token usage
    - Review access patterns regularly
 
-## Next Steps
+## Next steps
 
 1. Create ACL policies for different roles
 2. Generate tokens for applications and users

@@ -23,7 +23,7 @@ The TLS role generates TLS certificates for secure communication in the Nomad cl
 | `tls_ca_key_filename` | string | `ca-key.pem` | CA private key filename |
 | `tls_self_signed_generate` | list | `[]` | List of certificates to generate |
 
-### Certificate Generation List Format
+### Certificate generation list format
 
 Each item in `tls_self_signed_generate` should contain:
 ```yaml
@@ -32,7 +32,7 @@ Each item in `tls_self_signed_generate` should contain:
   dns: "server.example.com"   # DNS name for SAN
 ```
 
-## Generated Files
+## Generated files
 
 The role creates the following files in `{{ tls_path }}`:
 
@@ -80,15 +80,15 @@ pre_tasks:
     delegate_to: localhost
 ```
 
-## Certificate Details
+## Certificate details
 
-### CA Certificate
+### CA certificate
 - **Common Name**: "Nomad CA"
 - **Key Usage**: Certificate Signing
 - **Basic Constraints**: CA:TRUE
 - **Validity**: Self-signed
 
-### Node Certificates
+### Node certificates
 - **Subject Alternative Names**:
   - IP: 127.0.0.1 (localhost)
   - IP: Node's IP address
@@ -98,7 +98,7 @@ pre_tasks:
 - **Signed By**: CA certificate
 - **Validity**: 365 days from creation
 
-## Certificate Distribution
+## Certificate distribution
 
 After generation, certificates are distributed by the **helper role**:
 
@@ -124,9 +124,9 @@ Install with:
 ansible-galaxy collection install community.crypto
 ```
 
-## Example Configurations
+## Example configurations
 
-### Generate Certificates for Multiple Nodes
+### Generate certificates for multiple nodes
 
 ```yaml
 - name: Generate TLS certificates
@@ -147,7 +147,7 @@ ansible-galaxy collection install community.crypto
   delegate_to: localhost
 ```
 
-### Custom Certificate Path
+### Custom certificate path
 
 ```yaml
 - name: Generate TLS certificates
@@ -161,24 +161,24 @@ ansible-galaxy collection install community.crypto
         dns: "{{ inventory_hostname }}"
 ```
 
-## Security Considerations
+## Security considerations
 
-### File Permissions
+### File permissions
 - CA private key: Stored locally, should be protected
 - Node private keys: Should have 0600 permissions when copied to nodes
 - Certificates (public): Can have 0644 permissions
 
-### Certificate Validity
+### Certificate validity
 - Certificates are valid for 365 days
 - Plan for certificate rotation before expiry
 - Consider implementing automated renewal
 
-### CA Protection
+### CA protection
 - The CA private key (`ca-key.pem`) can sign new certificates
 - Keep it secure and backed up
 - Consider using a proper PKI for production
 
-## Certificate Rotation
+## Certificate rotation
 
 To rotate certificates:
 
@@ -199,7 +199,7 @@ ansible all -b -m systemd -a "name=nomad state=restarted"
 
 ## Troubleshooting
 
-### Certificates Not Generated
+### Certificates not generated
 ```bash
 # Check if community.crypto is installed
 ansible-galaxy collection list | grep community.crypto
@@ -211,7 +211,7 @@ ls -la ansible/.tls/
 ansible-playbook site.yaml -vvv
 ```
 
-### Certificate Validation Errors
+### Certificate validation errors
 ```bash
 # Verify certificate
 openssl x509 -in ansible/.tls/server-1.pem -text -noout
@@ -223,7 +223,7 @@ openssl x509 -in ansible/.tls/ca.pem -text -noout
 openssl verify -CAfile ansible/.tls/ca.pem ansible/.tls/server-1.pem
 ```
 
-### SAN Issues
+### SAN issues
 ```bash
 # Check Subject Alternative Names
 openssl x509 -in ansible/.tls/server-1.pem -text -noout | grep -A1 "Subject Alternative Name"

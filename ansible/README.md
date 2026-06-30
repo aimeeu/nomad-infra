@@ -2,7 +2,7 @@
 
 This directory contains Ansible playbooks and roles to install and configure HashiCorp Nomad v2.0.3 on the infrastructure provisioned by Terraform.
 
-**📖 [Complete Deployment Guide](../DEPLOYMENT.md)** - Step-by-step instructions for the full deployment process
+**[Complete Deployment Guide](../DEPLOYMENT.md)** - Step-by-step instructions for the full deployment process
 
 ## Overview
 
@@ -15,7 +15,7 @@ The Ansible configuration automates the complete setup of a Nomad v2.0.3 + Consu
 - Systemd service management
 - Cloud auto-join configuration for AWS
 
-## Quick Start
+## Quick start
 
 After running `terraform apply`, the inventory file will be automatically generated. Then run:
 
@@ -32,9 +32,9 @@ ansible all -m ping
 ansible-playbook site.yaml
 ```
 
-**Expected Duration**: ~10 minutes for a 5-node cluster (3 servers + 2 clients)
+**Expected duration**: ~10 minutes for a 5-node cluster (3 servers + 2 clients)
 
-## Directory Structure
+## Directory structure
 
 ```
 ansible/
@@ -80,7 +80,7 @@ ansible/
 ### site.yaml
 **Purpose**: Main orchestration playbook that configures the entire cluster
 
-**What It Does**:
+**What it does**:
 1. Gathers facts from all hosts
 2. Configures Nomad servers with cloud auto-join
 3. Configures Nomad clients with Docker and CNI
@@ -91,14 +91,14 @@ ansible/
 ansible-playbook site.yaml
 ```
 
-**When to Use**: Initial deployment or full cluster reconfiguration
+**When to use**: Initial deployment or full cluster reconfiguration
 
 ---
 
 ### nomad_servers.yaml
 **Purpose**: Configures Nomad server nodes
 
-**What It Does**:
+**What it does**:
 - Generates TLS certificates for servers
 - Installs base system packages
 - Distributes TLS certificates
@@ -117,7 +117,7 @@ ansible-playbook site.yaml
 ansible-playbook nomad_servers.yaml
 ```
 
-**When to Use**: 
+**When to use**: 
 - Initial server deployment
 - Adding new servers
 - Reconfiguring existing servers
@@ -127,7 +127,7 @@ ansible-playbook nomad_servers.yaml
 ### nomad_clients.yaml
 **Purpose**: Configures Nomad client nodes
 
-**What It Does**:
+**What it does**:
 - Generates TLS certificates for clients
 - Installs base system packages
 - Installs CNI plugins (Ubuntu only)
@@ -149,7 +149,7 @@ ansible-playbook nomad_servers.yaml
 ansible-playbook nomad_clients.yaml
 ```
 
-**When to Use**:
+**When to use**:
 - Initial client deployment
 - Adding new clients
 - Reconfiguring existing clients
@@ -159,7 +159,7 @@ ansible-playbook nomad_clients.yaml
 ### nomad_acl_bootstrap.yaml
 **Purpose**: Bootstraps the Nomad ACL system
 
-**What It Does**:
+**What it does**:
 - Verifies Nomad is running
 - Runs `nomad acl bootstrap` command
 - Saves bootstrap token to local files
@@ -174,11 +174,11 @@ ansible-playbook nomad_clients.yaml
 ansible-playbook nomad_acl_bootstrap.yaml
 ```
 
-**Output Files**:
+**Output files**:
 - `nomad_bootstrap_token.txt` - Full bootstrap details
 - `nomad_bootstrap_secret_id.txt` - Token only
 
-**When to Use**: After deploying a cluster with ACLs enabled
+**When to use**: After deploying a cluster with ACLs enabled
 
 See [`BOOTSTRAP_ACL_EXAMPLE.md`](BOOTSTRAP_ACL_EXAMPLE.md) for detailed instructions.
 
@@ -187,7 +187,7 @@ See [`BOOTSTRAP_ACL_EXAMPLE.md`](BOOTSTRAP_ACL_EXAMPLE.md) for detailed instruct
 ### consul_nomad_integration.yaml
 **Purpose**: Orchestrates the full Consul-Nomad integration by importing both sub-playbooks in sequence
 
-**What It Does**: Imports `consul_nomad_service_discovery.yaml` then `consul_nomad_workload_identity.yaml`.
+**What it does**: Imports `consul_nomad_service_discovery.yaml` then `consul_nomad_workload_identity.yaml`.
 
 **Prerequisites**:
 - Consul ACL bootstrapped (`consul_acl_bootstrap.yaml` completed, `consul-bootstrap-secret-id.txt` present)
@@ -210,13 +210,13 @@ See [`PLAYBOOKS-README.md`](PLAYBOOKS-README.md) and [`roles/nomad_consul/README
 ### consul_nomad_service_discovery.yaml
 **Purpose**: Phase 1 — Consul ACL policies and agent tokens for Nomad service registration
 
-**What It Does**:
+**What it does**:
 - Creates Consul ACL policies `nomad-server-policy` and `nomad-client-policy`
 - Creates Consul ACL tokens for Nomad server and client agents
 - Reconfigures all Nomad agents with the `consul { address token }` block
 - Restarts Nomad on all nodes
 
-**Output Files** (on control machine, mode 0600):
+**Output files** (on control machine, mode 0600):
 - `nomad-consul-server-token-output.txt` / `nomad-consul-server-secret-id.txt`
 - `nomad-consul-client-token-output.txt` / `nomad-consul-client-secret-id.txt`
 
@@ -230,7 +230,7 @@ ansible-playbook -i inventory.ini consul_nomad_service_discovery.yaml
 ### consul_nomad_workload_identity.yaml
 **Purpose**: Phase 2 — Consul JWT auth method and binding rules for Nomad workload identities
 
-**What It Does**:
+**What it does**:
 - Creates Consul ACL policy `nomad-tasks-policy`
 - Creates Consul JWT auth method `nomad-workloads` (JWKS URL points to Nomad)
 - Creates binding rules mapping Nomad JWTs to Consul service identities and roles
@@ -249,7 +249,7 @@ ansible-playbook -i inventory.ini consul_nomad_workload_identity.yaml
 ### dnsmasq.yaml
 **Purpose**: Installs and configures dnsmasq for `.consul` DNS forwarding on all nodes
 
-**What It Does**:
+**What it does**:
 - Installs dnsmasq
 - Disables systemd-resolved stub listener so dnsmasq can occupy port 53
 - Configures `/etc/dnsmasq.d/10-consul` to forward `.consul` queries to `127.0.0.1:8600`
@@ -263,7 +263,7 @@ ansible-playbook -i inventory.ini consul_nomad_workload_identity.yaml
 ansible-playbook -i inventory.ini dnsmasq.yaml
 ```
 
-**When to Use**: After Consul agents are running. Enables `host consul.service.consul` and other `.consul` name resolution on every node.
+**When to use**: After Consul agents are running. Enables `host consul.service.consul` and other `.consul` name resolution on every node.
 
 See [`roles/dnsmasq/README.md`](roles/dnsmasq/README.md) for details.
 
@@ -272,7 +272,7 @@ See [`roles/dnsmasq/README.md`](roles/dnsmasq/README.md) for details.
 ### teardown.yaml
 **Purpose**: Removes everything installed by the Ansible playbooks
 
-**What It Does**:
+**What it does**:
 - Stops and removes Nomad (service, binary, config, data directories)
 - Stops and removes Consul (service, binary, config, data directories, consul user/group)
 - Removes dnsmasq and restores `systemd-resolved` and `/etc/resolv.conf`
@@ -356,7 +356,7 @@ ansible-playbook -i inventory.ini teardown.yaml --tags teardown_tokens
 
 ---
 
-### geerlingguy.docker (External Role)
+### geerlingguy.docker (external role)
 **Purpose**: Docker installation and configuration
 
 **Features**:
@@ -382,12 +382,12 @@ ansible-galaxy install -r requirements.yaml
 **Features**:
 - Downloads binaries from releases.hashicorp.com
 - Verifies and handles version upgrades
-- Supports multiple architectures (amd64, arm64, etc.)
+- Supports multiple architectures (amd64, arm64, and others)
 - Idempotent installation
 
 **Used By**: Nomad role (indirectly)
 
-**Supported Products**: Nomad, Consul, Vault, Terraform, Packer, etc.
+**Supported products**: Nomad, Consul, Vault, Terraform, and Packer
 
 **Documentation**: [`roles/hashicorp_release/README.md`](roles/hashicorp_release/README.md)
 
@@ -463,9 +463,9 @@ ansible-galaxy install -r requirements.yaml
 
 **Documentation**: [`roles/tls/README.md`](roles/tls/README.md)
 
-## Configuration Variables
+## Configuration variables
 
-### Nomad Role Variables
+### Nomad role variables
 
 Located in [`roles/nomad/defaults/main.yaml`](roles/nomad/defaults/main.yaml):
 
@@ -493,7 +493,7 @@ nomad_consul_agent_token: ""
 nomad_consul_address: "127.0.0.1:8500"
 ```
 
-### Common Variables
+### Common variables
 
 These can be overridden in playbooks or via command line:
 
@@ -505,9 +505,9 @@ These can be overridden in playbooks or via command line:
 | `nomad_cloud_auto_join_enabled` | `true` | Enable AWS cloud auto-join |
 | `cni_plugins_version` | `1.9.0` | CNI plugins version |
 
-## Usage Examples
+## Usage examples
 
-### Install Required Dependencies
+### Install required dependencies
 
 Before running playbooks, install external roles and collections:
 
@@ -519,7 +519,7 @@ ansible-galaxy collection install community.crypto ansible.posix
 ansible-galaxy install -r requirements.yaml
 ```
 
-### Configure Entire Cluster
+### Configure entire cluster
 
 ```bash
 ansible-playbook site.yaml
@@ -527,25 +527,25 @@ ansible-playbook site.yaml
 
 This runs both server and client playbooks in sequence.
 
-### Configure Only Servers
+### Configure only servers
 
 ```bash
 ansible-playbook nomad_servers.yaml
 ```
 
-### Configure Only Clients
+### Configure only clients
 
 ```bash
 ansible-playbook nomad_clients.yaml
 ```
 
-### Check Connectivity
+### Check connectivity
 
 ```bash
 ansible all -m ping
 ```
 
-### Run Ad-Hoc Commands
+### Run ad-hoc commands
 
 ```bash
 # Check Nomad version on all hosts
@@ -564,7 +564,7 @@ ansible servers -b -m systemd -a "name=nomad state=restarted"
 ansible all -b -a "journalctl -u nomad -n 50"
 ```
 
-### Override Variables
+### Override variables
 
 ```bash
 # Install a different Nomad version
@@ -580,7 +580,7 @@ ansible-playbook site.yaml -e "nomad_log_level=DEBUG"
 ansible-playbook site.yaml -i custom_inventory.ini
 ```
 
-### Limit Execution to Specific Hosts
+### Limit execution to specific hosts
 
 ```bash
 # Configure only server-1
@@ -595,7 +595,7 @@ ansible-playbook site.yaml --limit "server-1,client-1"
 
 ## Customization
 
-### Modify Server Configuration
+### Modify server configuration
 
 Edit [`nomad_servers.yaml`](nomad_servers.yaml) to change server-specific settings:
 - Bootstrap expect count
@@ -613,7 +613,7 @@ Example:
     nomad_log_level: "DEBUG"           # More verbose logging
 ```
 
-### Modify Client Configuration
+### Modify client configuration
 
 Edit [`nomad_clients.yaml`](nomad_clients.yaml) to change client-specific settings:
 - Server connection methods
@@ -630,7 +630,7 @@ Example:
     # Add custom client configuration
 ```
 
-### Add Custom Tasks
+### Add custom tasks
 
 Add custom tasks to the playbooks' `post_tasks` section:
 
@@ -647,7 +647,7 @@ post_tasks:
       port: 9100
 ```
 
-### Use Different Nomad Version
+### Use different Nomad version
 
 ```bash
 # Edit roles/nomad/defaults/main.yaml
@@ -659,7 +659,7 @@ ansible-playbook site.yaml -e "nomad_binary_version=1.12.0"
 
 ## Troubleshooting
 
-### Check Ansible Connectivity
+### Check Ansible connectivity
 
 ```bash
 # Test SSH connectivity
@@ -672,7 +672,7 @@ ansible all -m setup
 ansible all -m command -a "python3 --version"
 ```
 
-### Verify SSH Access
+### Verify SSH access
 
 ```bash
 # Test SSH manually
@@ -685,7 +685,7 @@ ls -la ssh_key.pem  # Should be 600
 chmod 600 ssh_key.pem
 ```
 
-### Check Nomad Service Status
+### Check Nomad service status
 
 ```bash
 # Check service status on all hosts
@@ -698,7 +698,7 @@ ansible all -a "pgrep nomad"
 ansible all -b -a "systemctl status nomad"
 ```
 
-### View Nomad Logs
+### View Nomad logs
 
 ```bash
 # View recent logs
@@ -711,7 +711,7 @@ ansible all -b -a "journalctl -u nomad -f"
 ansible all -b -a "journalctl -u nomad --since '10 minutes ago'"
 ```
 
-### Verify Cloud Auto-Join
+### Verify cloud auto-join
 
 ```bash
 # Check server members
@@ -724,7 +724,7 @@ ansible all -a "nomad agent-info"
 ansible all -b -a "journalctl -u nomad | grep 'auto-join'"
 ```
 
-### Debug Playbook Execution
+### Debug playbook execution
 
 ```bash
 # Run with verbose output
@@ -742,9 +742,9 @@ ansible-playbook site.yaml --check
 ansible-playbook site.yaml --step
 ```
 
-### Common Issues
+### Common issues
 
-#### 1. "Permission denied" SSH Error
+#### 1. "Permission denied" SSH error
 
 **Problem**: Cannot connect via SSH
 
@@ -753,7 +753,7 @@ ansible-playbook site.yaml --step
 chmod 600 ssh_key.pem
 ```
 
-#### 2. "Module not found" Error
+#### 2. "Module not found" error
 
 **Problem**: Required Ansible collections not installed
 
@@ -762,7 +762,7 @@ chmod 600 ssh_key.pem
 ansible-galaxy collection install community.crypto ansible.posix
 ```
 
-#### 3. Docker Not Working
+#### 3. Docker not working
 
 **Problem**: Docker driver not available in Nomad
 
@@ -778,7 +778,7 @@ ansible clients -a "groups ubuntu"
 ansible clients -b -m systemd -a "name=nomad state=restarted"
 ```
 
-#### 4. CNI Plugins Missing
+#### 4. CNI plugins missing
 
 **Problem**: Bridge networking not working
 
@@ -794,7 +794,7 @@ ansible clients -a "lsmod | grep bridge"
 ansible clients -a "sysctl net.bridge.bridge-nf-call-iptables"
 ```
 
-#### 5. Servers Not Forming Cluster
+#### 5. Servers not forming cluster
 
 **Problem**: Servers not discovering each other
 
@@ -807,7 +807,7 @@ ansible clients -a "sysctl net.bridge.bridge-nf-call-iptables"
 ansible servers -b -a "journalctl -u nomad | grep 'auto-join'"
 ```
 
-## Important Notes
+## Important notes
 
 1. **IAM Instance Profile**: The Terraform configuration creates an IAM instance profile but doesn't attach it to instances. For cloud auto-join to work, you need to attach the instance profile to your EC2 instances in [`terraform/aws/compute.tf`](../terraform/aws/compute.tf).
 
@@ -821,7 +821,7 @@ ansible servers -b -a "journalctl -u nomad | grep 'auto-join'"
 
 6. **Inventory File**: The inventory file is auto-generated by Terraform. Don't edit it manually as changes will be overwritten.
 
-## Next Steps
+## Next steps
 
 After running the playbooks:
 
@@ -853,7 +853,7 @@ After running the playbooks:
 
 6. **Configure TLS**: Update Nomad configuration to use generated certificates
 
-## Related Documentation
+## Related documentation
 
 - [Main Project README](../README.md)
 - [Playbooks Documentation](PLAYBOOKS-README.md)

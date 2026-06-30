@@ -86,7 +86,7 @@ This role is used in both server and client playbooks for various utility operat
 
 ## Feature Details
 
-### 1. Package Management
+### 1. Package management
 
 Install packages based on the system's package manager:
 
@@ -133,7 +133,7 @@ Copy files from the Ansible control machine to remote hosts:
 - `mode`: File permissions (default: 0644)
 - `dir_mode`: Directory permissions (default: 0755)
 
-### 3. Write Content to Files
+### 3. Write content to files
 
 Write string content directly to files on remote hosts:
 
@@ -183,7 +183,7 @@ Process Jinja2 templates and write to remote hosts:
 - `mode`: File permissions (default: 0644)
 - `dir_mode`: Directory permissions (default: 0755)
 
-### 5. Write Content Locally
+### 5. Write content locally
 
 Write content to files on the Ansible control machine:
 
@@ -198,7 +198,7 @@ Write content to files on the Ansible control machine:
 
 This is useful for saving generated tokens, keys, or configuration files locally.
 
-### 6. Sync Directories
+### 6. Sync directories
 
 Synchronize entire directories from local to remote:
 
@@ -212,7 +212,7 @@ Synchronize entire directories from local to remote:
 
 Files are synced to `/home/{{ ansible_user }}/` on remote hosts.
 
-### 7. Systemd Service Management
+### 7. Systemd service management
 
 Start and enable a systemd service:
 
@@ -222,7 +222,7 @@ Start and enable a systemd service:
     helper_systemd_start_service_name: "nomad"
 ```
 
-### 8. Debug Host Facts
+### 8. Debug host facts
 
 Print all host variables for troubleshooting:
 
@@ -232,7 +232,7 @@ Print all host variables for troubleshooting:
     helper_print_host_facts: true
 ```
 
-## Complete Example
+## Complete example
 
 ```yaml
 - hosts: servers
@@ -304,7 +304,7 @@ ansible-galaxy collection install ansible.posix
 
 ## Troubleshooting
 
-### Packages Not Installing
+### Packages not installing
 ```bash
 # Check package manager
 ansible all -m setup -a "filter=ansible_pkg_mgr"
@@ -314,7 +314,7 @@ apt-cache search <package>  # Debian/Ubuntu
 yum search <package>        # RHEL/CentOS
 ```
 
-### File Copy Fails
+### File copy fails
 ```bash
 # Check source file exists
 ls -la /local/path/file
@@ -323,7 +323,7 @@ ls -la /local/path/file
 ansible all -b -m file -a "path=/etc/app state=directory"
 ```
 
-### Sync Fails
+### Sync fails
 ```bash
 # Ensure rsync is installed
 ansible all -m package -a "name=rsync state=present"

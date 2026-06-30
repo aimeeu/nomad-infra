@@ -19,7 +19,7 @@ The common role provides base system configuration for all hosts in the Nomad cl
 | `common_packages` | list | See defaults | List of packages to install |
 | `common_hostname` | string | `""` | Hostname to set for the system |
 
-### Default Packages
+### Default packages
 
 - curl
 - wget

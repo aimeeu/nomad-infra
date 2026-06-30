@@ -2,7 +2,7 @@
 
 This directory contains Terraform configuration files to provision AWS infrastructure for a co-located HashiCorp Consul v2.0.1 and Nomad v2.0.3 cluster.
 
-## What Gets Created
+## What gets created
 
 ```mermaid
 graph TB
@@ -32,7 +32,7 @@ graph TB
     KP --> S1 & S2 & S3 & C1 & C2
 ```
 
-## Resources Created
+## Resources created
 
 | Resource | Count | Details |
 |----------|-------|---------|
@@ -51,20 +51,20 @@ graph TB
 | `local_sensitive_file` | 1 | `ansible/ssh_key.pem` (mode 0600) |
 | `local_file` (inventory) | 1 | `ansible/inventory.ini` |
 
-## Security Group Rules
+## Security group rules
 
 | Direction | Port | Protocol | Source/Dest | Purpose |
 |-----------|------|----------|-------------|---------|
 | Ingress | 22 | TCP | `allowed_ssh_cidr` | SSH access |
-| Ingress | 8500 | TCP | `0.0.0.0/0` | Consul HTTP API & UI ⚠️ |
+| Ingress | 8500 | TCP | `0.0.0.0/0` | Consul HTTP API & UI |
 | Ingress | all | all | Self (security group) | All internal cluster traffic |
 | Egress | all | all | `0.0.0.0/0` | All outbound traffic |
 
-⚠️ Consul port 8500 and Nomad port 4646 are open to the internet by default. Restrict these for production deployments. See [../README-SECURITY-GROUP.md](../README-SECURITY-GROUP.md).
+Consul port 8500 and Nomad port 4646 are open to the internet by default. Restrict these for production deployments. See [../README-SECURITY-GROUP.md](../README-SECURITY-GROUP.md).
 
 **Note:** Nomad ports 4647 (RPC) and 4648 (Serf) are covered by the `self` rule that allows all internal traffic within the security group.
 
-## File Reference
+## File reference
 
 ### main.tf
 
@@ -87,7 +87,7 @@ ManagedBy   = "Terraform"
 | `environment` | string | `dev` | Environment tag |
 | `vpc_cidr` | string | `10.0.0.0/16` | VPC CIDR block |
 | `subnet_cidr` | string | `10.0.1.0/24` | Public subnet CIDR |
-| `allowed_ssh_cidr` | string | `0.0.0.0/0` ⚠️ | CIDR allowed for SSH |
+| `allowed_ssh_cidr` | string | `0.0.0.0/0` | CIDR allowed for SSH |
 | `ssh_user` | string | `ubuntu` | SSH username |
 | `server_count` | number | `3` | Number of server instances |
 | `client_count` | number | `2` | Number of client instances |
@@ -220,6 +220,6 @@ ansible-playbook -i inventory.ini nomad_clients.yaml
 terraform destroy
 ```
 
-## State Management
+## State management
 
 State is stored **locally** in `terraform.tfstate`. Do not add a remote backend without team discussion. Never commit `terraform.tfstate` or `terraform.tfvars` to version control — both are git-ignored.

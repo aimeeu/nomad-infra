@@ -21,7 +21,7 @@ The CNI role installs Container Network Interface (CNI) plugins required for Nom
 | `cni_plugins_config_path` | string | `/opt/cni/config` | Directory for CNI configuration files |
 | `cni_configs` | list | `[]` | List of CNI configuration files to create |
 
-## CNI Plugins Included
+## CNI plugins included
 
 The installation includes standard CNI plugins:
 - bridge
@@ -87,7 +87,7 @@ This role is used **only in the client playbook** since clients run containerize
               }
 ```
 
-## System Requirements
+## System requirements
 
 - Ubuntu (role checks `ansible_distribution`)
 - Sufficient disk space in `/opt/cni/bin` (~50MB)
@@ -102,7 +102,7 @@ This role is used **only in the client playbook** since clients run containerize
 
 ## Troubleshooting
 
-### Plugins Not Found
+### Plugins not found
 If Nomad reports CNI plugins not found:
 ```bash
 # Verify installation
@@ -112,7 +112,7 @@ ls -la /opt/cni/bin/
 nomad agent-info | grep cni
 ```
 
-### Network Issues
+### Network issues
 If containers can't communicate:
 ```bash
 # Check bridge interface

@@ -51,7 +51,7 @@ The nomad role installs and configures HashiCorp Nomad v2.0.3 on both server and
 | `nomad_consul_task_identity_aud` | string | `consul.io` | Audience for task workload identities |
 | `nomad_consul_task_identity_ttl` | string | `1h` | TTL for task workload identity tokens |
 
-## Directory Structure
+## Directory structure
 
 The role creates the following directories:
 ```
@@ -96,13 +96,13 @@ The role creates the following directories:
     nomad_consul_agent_token: "{{ lookup('file', 'nomad-consul-server-secret-id.txt') }}"
 ```
 
-## Configuration Templates
+## Configuration templates
 
 The role uses Jinja2 templates to generate configuration:
 - `templates/nomad.hcl.j2` - Main Nomad configuration
 - `templates/nomad.service.j2` - Systemd service file
 
-## Server Mode
+## Server mode
 
 When `nomad_server_enabled: true`:
 - Configures Nomad as a server
@@ -110,7 +110,7 @@ When `nomad_server_enabled: true`:
 - Enables server-specific features
 - Configures cloud auto-join for server discovery
 
-## Client Mode
+## Client mode
 
 When `nomad_client_enabled: true`:
 - Configures Nomad as a client
@@ -119,7 +119,7 @@ When `nomad_client_enabled: true`:
 - Sets up resource allocation
 - Configures cloud auto-join to find servers
 
-## Cloud Auto-Join (AWS)
+## Cloud auto-join (AWS)
 
 When enabled, Nomad automatically discovers cluster members using AWS tags:
 
@@ -148,7 +148,7 @@ The role includes handlers for:
 
 ## Example Configurations
 
-### Basic Server
+### Basic server
 
 ```yaml
 - hosts: servers
@@ -159,7 +159,7 @@ The role includes handlers for:
         nomad_server_bootstrap_expect: 3
 ```
 
-### Basic Client
+### Basic client
 
 ```yaml
 - hosts: clients
@@ -181,7 +181,7 @@ The role includes handlers for:
         nomad_acl_enabled: true
 ```
 
-### Client with Debug Logging
+### Client with debug logging
 
 ```yaml
 - hosts: clients
@@ -193,7 +193,7 @@ The role includes handlers for:
         nomad_enable_debug: true
 ```
 
-## Post-Installation
+## Post-installation
 
 After the role completes:
 
@@ -224,7 +224,7 @@ Prometheus metrics are exposed at:
 http://<nomad-address>:4646/v1/metrics?format=prometheus
 ```
 
-## ACL Bootstrap
+## ACL bootstrap
 
 If ACLs are enabled, bootstrap after deployment:
 ```bash
@@ -235,7 +235,7 @@ Save the bootstrap token securely!
 
 ## Troubleshooting
 
-### Service Won't Start
+### Service won't start
 ```bash
 # Check service status
 sudo systemctl status nomad
@@ -247,7 +247,7 @@ sudo journalctl -u nomad -n 50
 nomad config validate /etc/nomad.d/nomad.hcl
 ```
 
-### Cloud Auto-Join Not Working
+### Cloud auto-join not working
 ```bash
 # Check IAM permissions
 aws sts get-caller-identity
@@ -259,7 +259,7 @@ aws ec2 describe-instances --instance-ids $(ec2-metadata --instance-id | cut -d'
 sudo journalctl -u nomad | grep "auto-join"
 ```
 
-### Clients Not Connecting
+### Clients not connecting
 ```bash
 # Check network connectivity
 telnet <server-ip> 4647
@@ -268,7 +268,7 @@ telnet <server-ip> 4647
 nomad agent-info | grep servers
 ```
 
-## Security Considerations
+## Security considerations
 
 - Runs as root by default (required for Docker access)
 - Configuration files have restrictive permissions (0600)
@@ -276,7 +276,7 @@ nomad agent-info | grep servers
 - Use TLS for production deployments
 - Restrict network access via security groups
 
-## Upgrade Process
+## Upgrade process
 
 To upgrade Nomad:
 1. Update `nomad_binary_version` variable
