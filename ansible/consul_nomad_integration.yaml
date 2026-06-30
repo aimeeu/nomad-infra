@@ -1,9 +1,32 @@
 ---
 # Playbook: consul_nomad_integration.yaml
 #
-# Configures the Consul ACL resources for Nomad integration and then
-# updates the Nomad agent configuration on every node to enable the
-# consul block with workload identity support.
+# Orchestrates the full Consul-Nomad integration in two sequential phases:
+#
+#   Phase 1 — Service discovery (consul_nomad_service_discovery.yaml):
+#     Creates Consul ACL policies and tokens for Nomad agent operations, then
+#     writes the consul { address token } block to all Nomad agent configs.
+#
+#   Phase 2 — Workload identity (consul_nomad_workload_identity.yaml):
+#     Creates the Consul JWT auth method and binding rules for Nomad workload
+#     identities, then adds service_identity + task_identity blocks to Nomad
+#     server configs.
+#
+# Run the individual playbooks when only one phase is needed:
+#   ansible-playbook -i inventory.ini consul_nomad_service_discovery.yaml
+#   ansible-playbook -i inventory.ini consul_nomad_workload_identity.yaml
+#
+# Prerequisites (all must be complete before running this playbook):
+#   1. consul_servers.yaml + consul_clients.yaml — Consul cluster healthy
+#   2. consul_acl_bootstrap.yaml — Consul ACL bootstrapped
+#   3. nomad_servers.yaml + nomad_clients.yaml  — Nomad cluster running
+#
+# Usage:
+#   ansible-playbook -i inventory.ini consul_nomad_integration.yaml
+
+- ansible.builtin.import_playbook: consul_nomad_service_discovery.yaml
+- ansible.builtin.import_playbook: consul_nomad_workload_identity.yaml
+
 #
 # Prerequisites (must complete successfully before running this playbook):
 #   1. consul_servers.yaml   — Consul servers deployed and healthy

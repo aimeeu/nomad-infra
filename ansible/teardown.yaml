@@ -295,6 +295,7 @@
 - name: Remove bootstrap token files from the playbook directory
   hosts: localhost
   gather_facts: false
+  become: false
   connection: local
   tasks:
   - name: Remove bootstrap token files

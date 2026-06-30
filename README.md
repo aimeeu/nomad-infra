@@ -141,81 +141,86 @@ cd ansible
 ansible-galaxy install -r requirements.yaml
 ```
 
-### 3. Deploy Consul and Nomad — full cluster
+### 3. Choose a deployment scenario
+
+| Playbook | What it deploys | Use when |
+|----------|----------------|----------|
+| [`deploy_consul.yaml`](ansible/deploy_consul.yaml) | Consul servers + clients + ACL + dnsmasq | Consul-only service mesh or DNS |
+| [`deploy_nomad.yaml`](ansible/deploy_nomad.yaml) | Nomad servers + clients + ACL | Nomad-only workload orchestration |
+| [`deploy_consul_nomad_sd.yaml`](ansible/deploy_consul_nomad_sd.yaml) | Consul + Nomad + service discovery | Nomad registers services and health checks via Consul |
+| [`deploy_consul_nomad_wi.yaml`](ansible/deploy_consul_nomad_wi.yaml) | Consul + Nomad + service discovery + workload identity | Nomad workloads obtain scoped Consul tokens automatically |
+
+Each playbook configures all hosts, tests Ansible connectivity, deploys the named services, and prints a cluster status summary with access tokens and environment variable export commands. See [ansible/PLAYBOOKS-README.md](ansible/PLAYBOOKS-README.md) for full details on each scenario.
+
+#### Use case 1: Consul cluster only
+
+Deploys Consul servers and clients, bootstraps Consul ACL, and configures dnsmasq for `.consul` DNS forwarding on all nodes.
+
+```bash
+ansible-playbook -i inventory.ini deploy_consul.yaml
+```
+
+#### Use case 2: Nomad cluster only
+
+Deploys Nomad servers and clients and bootstraps Nomad ACL. No Consul integration.
+
+```bash
+ansible-playbook -i inventory.ini deploy_nomad.yaml
+```
+
+#### Use case 3: Consul + Nomad with service discovery
+
+Deploys a full Consul cluster and a full Nomad cluster, then configures Consul ACL policies and Nomad agent tokens so Nomad uses Consul for service registration and health checks.
+
+```bash
+ansible-playbook -i inventory.ini deploy_consul_nomad_sd.yaml
+```
+
+#### Use case 4: Consul + Nomad with service discovery and workload identity
+
+Extends use case 3 by configuring a Consul JWT auth method and adding `service_identity`/`task_identity` blocks to Nomad server configuration. Nomad workloads exchange a short-lived JWT for a scoped Consul ACL token at runtime — no static secrets required in job files.
+
+```bash
+ansible-playbook -i inventory.ini deploy_consul_nomad_wi.yaml
+```
+
+#### Full cluster (site.yaml)
+
+`site.yaml` runs all phases — Consul, Nomad, service discovery, and workload identity — in dependency order:
 
 ```bash
 ansible-playbook -i inventory.ini site.yaml
 ```
 
-`site.yaml` runs the core playbooks in dependency order (see `PLAYBOOKS-README.md` for the full sequence including ACL bootstrap, Consul-Nomad integration, and dnsmasq):
+### 4. Set environment variables
 
-1. `consul_servers.yaml` — installs and starts Consul server agents
-2. `consul_clients.yaml` — installs and starts Consul client agents
-3. `nomad_servers.yaml` — installs and starts Nomad server agents
-4. `nomad_clients.yaml` — installs and starts Nomad client agents
-
-### 4. Deploy Consul only
+After any deployment, source the helper script from the `ansible/` directory:
 
 ```bash
-ansible-playbook -i inventory.ini consul_servers.yaml
-ansible-playbook -i inventory.ini consul_clients.yaml
+cd ansible
+source ./set-cluster-env.sh
+
+# To unset:
+source ./unset-cluster-env.sh
 ```
 
-### 5. Deploy Nomad only (Consul must already be running)
+The script reads the first server IP from `inventory.ini` and the bootstrap token values from the `ansible/` directory. It skips variables whose token files are not present, so it works correctly for all four deployment scenarios.
+
+To set variables manually:
 
 ```bash
-ansible-playbook -i inventory.ini nomad_servers.yaml
-ansible-playbook -i inventory.ini nomad_clients.yaml
+export CONSUL_HTTP_ADDR=http://<server-ip>:8500
+export CONSUL_HTTP_TOKEN=$(cat ansible/consul-bootstrap-secret-id.txt)
+export NOMAD_ADDR=http://<server-ip>:4646
+export NOMAD_TOKEN=$(cat ansible/nomad-bootstrap-secret-id.txt)
 ```
 
-### 6. Bootstrap ACLs (run after both Consul and Nomad are deployed)
-
-```bash
-# Consul ACLs (consul_acl_enabled: true is set in consul_servers.yaml)
-ansible-playbook -i inventory.ini consul_acl_bootstrap.yaml
-
-# Nomad ACLs (nomad_acl_enabled: true is set in both nomad playbooks)
-ansible-playbook -i inventory.ini nomad_acl_bootstrap.yaml
-```
-
-### 7. Integrate Nomad with Consul (run after step 6)
-
-Configures Consul ACL policies, tokens, JWT auth method, and workload identity binding rules. Also reconfigures Nomad agents with the `consul {}` block.
-
-```bash
-ansible-playbook -i inventory.ini consul_nomad_integration.yaml
-```
-
-### 8. Enable Consul DNS forwarding via dnsmasq (run after Consul agents are healthy)
-
-```bash
-ansible-playbook -i inventory.ini dnsmasq.yaml
-```
-
-After this step, `.consul` DNS names are resolvable on every node:
-
-```bash
-host consul.service.consul
-host nomad.service.consul
-```
-
-### 9. Access the cluster
+### 5. Access the cluster
 
 | Service | URL |
 |---------|-----|
 | Consul UI | `http://<server-ip>:8500/ui` |
 | Nomad UI | `http://<server-ip>:4646` |
-
-Set environment variables for CLI access:
-
-```bash
-export CONSUL_HTTP_ADDR=http://<server-ip>:8500
-export NOMAD_ADDR=http://<server-ip>:4646
-
-# If ACLs are enabled:
-export CONSUL_HTTP_TOKEN=$(cat ansible/consul-bootstrap-secret-id.txt)
-export NOMAD_TOKEN=$(cat ansible/nomad-bootstrap-secret-id.txt)
-```
 
 ## Configuration
 
@@ -311,7 +316,13 @@ nomad-infra/
     ├── requirements.yaml                 # Galaxy roles (geerlingguy.docker)
     ├── inventory.ini                     # Auto-generated by Terraform
     ├── ssh_key.pem                       # Auto-generated SSH private key
-    ├── site.yaml                         # Full cluster playbook (recommended)
+    ├── site.yaml                         # Full cluster playbook (all phases)
+    ├── deploy_consul.yaml                # Use case: Consul cluster only
+    ├── deploy_nomad.yaml                 # Use case: Nomad cluster only
+    ├── deploy_consul_nomad_sd.yaml       # Use case: Consul + Nomad + service discovery
+    ├── deploy_consul_nomad_wi.yaml       # Use case: Consul + Nomad + SD + workload identity
+    ├── set-cluster-env.sh                # Source to set CONSUL/NOMAD env vars
+    ├── unset-cluster-env.sh              # Source to unset CONSUL/NOMAD env vars
     ├── consul_servers.yaml               # Consul server configuration
     ├── consul_clients.yaml               # Consul client configuration
     ├── consul_acl_bootstrap.yaml         # Consul ACL bootstrap

@@ -1,0 +1,124 @@
+---
+# Playbook: deploy_consul.yaml
+#
+# Deploys a complete Consul cluster:
+#   1. Configures all hosts
+#   2. Tests Ansible connectivity
+#   3. Deploys Consul servers and clients
+#   4. Bootstraps Consul ACL
+#   5. Configures dnsmasq for Consul DNS forwarding
+#
+# Usage:
+#   ansible-playbook -i inventory.ini deploy_consul.yaml
+#
+# Set environment variables after deployment:
+#   source ./set-cluster-env.sh
+#   source ./unset-cluster-env.sh   # to unset
+
+# ── Configure all hosts ───────────────────────────────────────────────────────
+
+- name: Configure all hosts
+  hosts: all
+  gather_facts: true
+  tasks:
+  - name: Display host information
+    ansible.builtin.debug:
+      msg: "Configuring {{ inventory_hostname }} ({{ ansible_facts['default_ipv4']['address'] | default('IP pending') }})"
+
+  - name: Display Ansible distribution
+    ansible.builtin.debug:
+      msg: "Ansible distribution: {{ ansible_facts['distribution'] }}"
+
+  - name: Allow 'ubuntu' user to have passwordless sudo
+    ansible.builtin.lineinfile:
+      path: /etc/sudoers.d/ubuntu_sudo
+      line: 'ubuntu ALL=(ALL) NOPASSWD:ALL'
+      state: present
+      mode: '0440'
+      create: true
+      validate: '/usr/sbin/visudo -cf %s'
+
+# ── Test Ansible connectivity ─────────────────────────────────────────────────
+
+- name: Test Ansible connectivity
+  hosts: all
+  gather_facts: false
+  tasks:
+  - name: Ping all hosts
+    ansible.builtin.ping:
+    register: ping_result
+
+  - name: Show ping result
+    ansible.builtin.debug:
+      var: ping_result
+
+# ── Deploy Consul ─────────────────────────────────────────────────────────────
+
+- name: Import Consul server playbook
+  ansible.builtin.import_playbook: consul_servers.yaml
+
+- name: Import Consul client playbook
+  ansible.builtin.import_playbook: consul_clients.yaml
+
+- name: Bootstrap Consul ACL
+  ansible.builtin.import_playbook: consul_acl_bootstrap.yaml
+
+- name: Configure dnsmasq for Consul DNS forwarding
+  ansible.builtin.import_playbook: dnsmasq.yaml
+
+# ── Consul cluster status summary ─────────────────────────────────────────────
+
+- name: Consul cluster status summary
+  hosts: localhost
+  gather_facts: false
+  become: false
+  tasks:
+  - name: Display cluster access tokens
+    ansible.builtin.debug:
+      msg:
+      - "=========================================="
+      - "Cluster Access Tokens"
+      - "=========================================="
+      - ""
+      - "Consul bootstrap token:"
+      - "  {{ lookup('file', playbook_dir + '/consul-bootstrap-secret-id.txt', errors='ignore') or '(not found — run consul_acl_bootstrap.yaml)' }}"
+
+  - name: Display environment variable export instructions
+    ansible.builtin.debug:
+      msg:
+      - "=========================================="
+      - "Environment Variables"
+      - "=========================================="
+      - ""
+      - "Run the following to set environment variables in your terminal:"
+      - ""
+      - "  export CONSUL_HTTP_ADDR=http://{{ hostvars[groups['servers'][0]]['ansible_host'] }}:8500"
+      - "  export CONSUL_HTTP_TOKEN={{ lookup('file', playbook_dir + '/consul-bootstrap-secret-id.txt', errors='ignore') or '(not found)' }}"
+      - ""
+      - "Or source the helper script from the ansible/ directory:"
+      - "  source ./set-cluster-env.sh"
+      - "  source ./unset-cluster-env.sh   # to unset"
+
+  - name: Display completion message
+    ansible.builtin.debug:
+      msg:
+      - "=========================================="
+      - "Consul Cluster Configuration Complete!"
+      - "=========================================="
+      - ""
+      - "Servers configured: {{ groups['servers'] | length }}"
+      - "Clients configured: {{ groups['clients'] | length }}"
+      - ""
+      - "SSH Access to Servers:"
+      - "{% for host in groups['servers'] %}  ssh -o 'IdentitiesOnly=yes' -i ssh_key.pem ubuntu@{{ hostvars[host]['ansible_host'] }}  # {{ host }}{% endfor %}"
+      - ""
+      - "SSH Access to Clients:"
+      - "{% for host in groups['clients'] %}  ssh -o 'IdentitiesOnly=yes' -i ssh_key.pem ubuntu@{{ hostvars[host]['ansible_host'] }}  # {{ host }}{% endfor %}"
+      - ""
+      - "Access Consul UI at:"
+      - "{% for host in groups['servers'] %}  http://{{ hostvars[host]['ansible_host'] }}:8500/ui{% endfor %}"
+      - ""
+      - "Next steps:"
+      - "  1. SSH to a server and verify Consul cluster: consul members"
+      - "  2. Check Consul health: consul operator raft list-peers"
+      - "  3. List Consul services: consul catalog services"

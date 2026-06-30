@@ -6,7 +6,7 @@ This directory contains Ansible playbooks and roles to install and configure Has
 
 ## Overview
 
-The Ansible configuration automates the complete setup of a Nomad v2.0.0 cluster, including:
+The Ansible configuration automates the complete setup of a Nomad v2.0.3 + Consul v2.0.1 cluster, including:
 - Base system configuration and package installation
 - TLS certificate generation and distribution
 - Container networking setup (CNI plugins)
@@ -50,11 +50,14 @@ ansible/
 ├── consul_servers.yaml             # Consul server configuration playbook
 ├── consul_clients.yaml             # Consul client configuration playbook
 ├── consul_acl_bootstrap.yaml       # Consul ACL bootstrap playbook
-├── consul_nomad_integration.yaml   # Consul-Nomad ACL integration playbook
-├── nomad_servers.yaml              # Nomad server configuration playbook
-├── nomad_clients.yaml              # Nomad client configuration playbook
-├── nomad_acl_bootstrap.yaml        # Nomad ACL bootstrap playbook
-├── dnsmasq.yaml                    # dnsmasq DNS forwarding playbook
+├── consul_nomad_integration.yaml        # Consul-Nomad full integration (imports sub-playbooks)
+├── consul_nomad_service_discovery.yaml  # Consul-Nomad service discovery (Phase 1)
+├── consul_nomad_workload_identity.yaml  # Consul-Nomad workload identity (Phase 2)
+├── nomad_servers.yaml                   # Nomad server configuration playbook
+├── nomad_clients.yaml                   # Nomad client configuration playbook
+├── nomad_acl_bootstrap.yaml             # Nomad ACL bootstrap playbook
+├── dnsmasq.yaml                         # dnsmasq DNS forwarding playbook
+├── teardown.yaml                        # Removes everything Ansible installed
 ├── .tls/                           # TLS certificates (auto-generated)
 │   ├── ca.pem                      # CA certificate
 │   ├── ca-key.pem                  # CA private key
@@ -182,33 +185,64 @@ See [`BOOTSTRAP_ACL_EXAMPLE.md`](BOOTSTRAP_ACL_EXAMPLE.md) for detailed instruct
 ---
 
 ### consul_nomad_integration.yaml
-**Purpose**: Configures Consul ACL resources for Nomad integration using Workload Identities
+**Purpose**: Orchestrates the full Consul-Nomad integration by importing both sub-playbooks in sequence
 
-**What It Does**:
-- Creates Consul ACL policies for Nomad server and client agents
-- Creates Consul ACL tokens for Nomad agent operations
-- Creates a Consul JWT auth method (`nomad-workloads`) for workload identity validation
-- Creates Consul binding rules for service registration and task data access
-- Creates a Consul ACL role for Nomad tasks in the default namespace
-- Reconfigures Nomad agents with the `consul {}` block (token + workload identity)
+**What It Does**: Imports `consul_nomad_service_discovery.yaml` then `consul_nomad_workload_identity.yaml`.
 
 **Prerequisites**:
-- Consul ACL bootstrapped (`consul_acl_bootstrap.yaml` completed)
+- Consul ACL bootstrapped (`consul_acl_bootstrap.yaml` completed, `consul-bootstrap-secret-id.txt` present)
 - Nomad cluster deployed and running
-- `consul-bootstrap-secret-id.txt` present in the `ansible/` directory
 
 **Usage**:
 ```bash
 ansible-playbook -i inventory.ini consul_nomad_integration.yaml
 ```
 
-**Output Files** (on control machine, mode 0600):
-- `nomad-consul-server-token-output.txt` — full Consul token output for Nomad servers
-- `nomad-consul-server-secret-id.txt` — Consul token SecretID for Nomad servers
-- `nomad-consul-client-token-output.txt` — full Consul token output for Nomad clients
-- `nomad-consul-client-secret-id.txt` — Consul token SecretID for Nomad clients
+**To skip workload identity:**
+```bash
+ansible-playbook -i inventory.ini consul_nomad_service_discovery.yaml
+```
 
-See [`roles/nomad_consul/README.md`](roles/nomad_consul/README.md) for architecture details.
+See [`PLAYBOOKS-README.md`](PLAYBOOKS-README.md) and [`roles/nomad_consul/README.md`](roles/nomad_consul/README.md) for full details.
+
+---
+
+### consul_nomad_service_discovery.yaml
+**Purpose**: Phase 1 — Consul ACL policies and agent tokens for Nomad service registration
+
+**What It Does**:
+- Creates Consul ACL policies `nomad-server-policy` and `nomad-client-policy`
+- Creates Consul ACL tokens for Nomad server and client agents
+- Reconfigures all Nomad agents with the `consul { address token }` block
+- Restarts Nomad on all nodes
+
+**Output Files** (on control machine, mode 0600):
+- `nomad-consul-server-token-output.txt` / `nomad-consul-server-secret-id.txt`
+- `nomad-consul-client-token-output.txt` / `nomad-consul-client-secret-id.txt`
+
+**Usage**:
+```bash
+ansible-playbook -i inventory.ini consul_nomad_service_discovery.yaml
+```
+
+---
+
+### consul_nomad_workload_identity.yaml
+**Purpose**: Phase 2 — Consul JWT auth method and binding rules for Nomad workload identities
+
+**What It Does**:
+- Creates Consul ACL policy `nomad-tasks-policy`
+- Creates Consul JWT auth method `nomad-workloads` (JWKS URL points to Nomad)
+- Creates binding rules mapping Nomad JWTs to Consul service identities and roles
+- Creates Consul ACL role `nomad-tasks-default`
+- Reconfigures Nomad **servers** with `service_identity` and `task_identity` blocks
+
+**Prerequisites**: `consul_nomad_service_discovery.yaml` must have run first.
+
+**Usage**:
+```bash
+ansible-playbook -i inventory.ini consul_nomad_workload_identity.yaml
+```
 
 ---
 
@@ -232,6 +266,30 @@ ansible-playbook -i inventory.ini dnsmasq.yaml
 **When to Use**: After Consul agents are running. Enables `host consul.service.consul` and other `.consul` name resolution on every node.
 
 See [`roles/dnsmasq/README.md`](roles/dnsmasq/README.md) for details.
+
+---
+
+### teardown.yaml
+**Purpose**: Removes everything installed by the Ansible playbooks
+
+**What It Does**:
+- Stops and removes Nomad (service, binary, config, data directories)
+- Stops and removes Consul (service, binary, config, data directories, consul user/group)
+- Removes dnsmasq and restores `systemd-resolved` and `/etc/resolv.conf`
+- Removes CNI plugins from client nodes
+- Removes Docker CE and related data from client nodes
+- Removes base packages installed by the `common` role
+- Deletes all bootstrap token files from the Ansible control machine
+
+**Usage**:
+```bash
+ansible-playbook -i inventory.ini teardown.yaml
+# Run a specific component only:
+ansible-playbook -i inventory.ini teardown.yaml --tags teardown_nomad
+ansible-playbook -i inventory.ini teardown.yaml --tags teardown_tokens
+```
+
+> **Warning:** Destructive and irreversible. Do not run against a production cluster.
 
 ## Roles
 

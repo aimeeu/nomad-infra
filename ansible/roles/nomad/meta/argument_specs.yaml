@@ -17,7 +17,7 @@ argument_specs:
       nomad_binary_version:
         type: str
         required: false
-        default: "2.0.0"
+        default: "2.0.3"
         description: Nomad release version to install.
 
       nomad_server_enabled:
@@ -55,8 +55,19 @@ argument_specs:
         required: false
         default: false
         description: >-
-          When true, writes a consul block in the Nomad agent configuration.
+          When true, writes a consul { address token } block in the Nomad agent
+          configuration. Set after running consul_nomad_service_discovery.yaml.
           Requires nomad_consul_agent_token to be set.
+
+      nomad_consul_workload_identity_enabled:
+        type: bool
+        required: false
+        default: false
+        description: >-
+          When true, adds service_identity and task_identity blocks inside the
+          consul block (Nomad servers only, requires Nomad 1.7+).
+          Set after running consul_nomad_workload_identity.yaml.
+          Has no effect unless nomad_consul_integration_enabled is also true.
 
       nomad_consul_agent_token:
         type: str

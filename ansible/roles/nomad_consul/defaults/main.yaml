@@ -1,11 +1,24 @@
 ---
 # nomad_consul role default variables
 #
-# This role configures the Consul ACL resources required for Nomad integration:
-#   - ACL policies and tokens for Nomad server and client agents
-#   - JWT auth method for Nomad workload identities
-#   - ACL binding rules for service registration and task access
-#   - ACL policy and role for Nomad task workload identities
+# This role configures the Consul ACL resources required for Nomad integration.
+# It is split into two independent phases:
+#
+#   Service discovery (service_discovery.yaml):
+#     - ACL policies and tokens for Nomad server and client agents
+#
+#   Workload identity (workload_identity.yaml):
+#     - JWT auth method for Nomad workload identities
+#     - ACL binding rules for service registration and task access
+#     - ACL policy and role for Nomad task workload identities
+#
+# Use nomad_consul_run_service_discovery / nomad_consul_run_workload_identity
+# to control which phases run (both default to true).
+
+# --- Phase control flags ---
+# Set to false to skip the corresponding phase when calling the role directly.
+nomad_consul_run_service_discovery: true
+nomad_consul_run_workload_identity: true
 
 # --- Consul connection ---
 # Address of the local Consul HTTP API (adjust if TLS is enabled)
@@ -21,10 +34,10 @@ nomad_consul_user: "consul"
 # Local file written by consul_acl_bootstrap.yaml containing only the SecretID
 nomad_consul_bootstrap_secret_id_file: "{{ playbook_dir }}/consul-bootstrap-secret-id.txt"
 
-# --- Idempotency sentinel ---
-# File written on the first server after a successful integration bootstrap.
-# Its presence prevents re-running the Consul ACL setup on subsequent plays.
-nomad_consul_bootstrapped_file: "/opt/consul/data/nomad-consul-bootstrapped.true"
+# --- Idempotency sentinels ---
+# Each phase writes its own sentinel so the two phases can be run independently.
+nomad_consul_sd_bootstrapped_file: "/opt/consul/data/nomad-consul-sd-bootstrapped.true"
+nomad_consul_wi_bootstrapped_file: "/opt/consul/data/nomad-consul-wi-bootstrapped.true"
 
 # Remote staging directory for policy and auth-method files (cleaned up after use)
 nomad_consul_staging_dir: "/tmp/nomad-consul-acl"

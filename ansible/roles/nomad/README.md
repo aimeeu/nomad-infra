@@ -42,7 +42,8 @@ The nomad role installs and configures HashiCorp Nomad v2.0.3 on both server and
 | `nomad_cloud_auto_join_enabled` | bool | `false` | Enable AWS cloud auto-join |
 | `nomad_cloud_auto_join_tag_key` | string | `AutoJoinRole` | AWS tag key for auto-join |
 | `nomad_cloud_auto_join_tag_value` | string | `server` | AWS tag value for auto-join |
-| `nomad_consul_integration_enabled` | bool | `false` | Enable Consul integration (`consul {}` block) |
+| `nomad_consul_integration_enabled` | bool | `false` | Enable Consul integration (`consul {}` block); set `true` after running `consul_nomad_service_discovery.yaml` |
+| `nomad_consul_workload_identity_enabled` | bool | `false` | Add `service_identity` and `task_identity` blocks in the `consul {}` section (Nomad servers only, requires Nomad 1.7+); set `true` after running `consul_nomad_workload_identity.yaml` |
 | `nomad_consul_address` | string | `127.0.0.1:8500` | Consul agent address |
 | `nomad_consul_agent_token` | string | `""` | Consul ACL token for Nomad agent operations |
 | `nomad_consul_service_identity_aud` | string | `consul.io` | Audience for service workload identities |

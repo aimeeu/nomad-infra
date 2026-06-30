@@ -63,6 +63,25 @@
   hosts: localhost
   gather_facts: false
   tasks:
+    - name: Display cluster access tokens
+      ansible.builtin.debug:
+        msg:
+          - "=========================================="
+          - "Cluster Access Tokens"
+          - "=========================================="
+          - ""
+          - "Consul bootstrap token:"
+          - "  {{ lookup('file', playbook_dir + '/consul-bootstrap-secret-id.txt', errors='ignore') or '(not found — run consul_acl_bootstrap.yaml)' }}"
+          - ""
+          - "Nomad bootstrap token:"
+          - "  {{ lookup('file', playbook_dir + '/nomad-bootstrap-secret-id.txt', errors='ignore') or '(not found — run nomad_acl_bootstrap.yaml)' }}"
+          - ""
+          - "Nomad server agent -> Consul token:"
+          - "  {{ lookup('file', playbook_dir + '/nomad-consul-server-secret-id.txt', errors='ignore') or '(not found — run consul_nomad_service_discovery.yaml)' }}"
+          - ""
+          - "Nomad client agent -> Consul token:"
+          - "  {{ lookup('file', playbook_dir + '/nomad-consul-client-secret-id.txt', errors='ignore') or '(not found — run consul_nomad_service_discovery.yaml)' }}"
+
     - name: Display completion message
       ansible.builtin.debug:
         msg:
@@ -86,8 +105,7 @@
           - "{% for host in groups['servers'] %}  http://{{ hostvars[host].ansible_host }}:8500/ui{% endfor %}"
           - ""
           - "Next steps:"
-          - "  1. Bootstrap ACLs: ansible-playbook nomad_acl_bootstrap.yaml"
-          - "  2. SSH to a server and verify Nomad cluster: nomad server members"
-          - "  3. Verify Consul cluster: consul members"
-          - "  4. Check nodes: nomad node status"
-          - "  5. Deploy a test job: nomad job run example.nomad"
+          - "  1. SSH to a server and verify Nomad cluster: nomad server members"
+          - "  2. Verify Consul cluster: consul members"
+          - "  3. Check nodes: nomad node status"
+          - "  4. Deploy a test job: nomad job run example.nomad"
