@@ -14,107 +14,29 @@
 #   source ./set-cluster-env.sh
 #   source ./unset-cluster-env.sh   # to unset
 
-# ── Configure all hosts ───────────────────────────────────────────────────────
+# ── Configure all hosts and test connectivity ────────────────────────────────
 
-- name: Configure all hosts
-  hosts: all
-  gather_facts: true
-  tasks:
-  - name: Display host information
-    ansible.builtin.debug:
-      msg: "Configuring {{ inventory_hostname }} ({{ ansible_facts['default_ipv4']['address'] | default('IP pending') }})"
-
-  - name: Display Ansible distribution
-    ansible.builtin.debug:
-      msg: "Ansible distribution: {{ ansible_facts['distribution'] }}"
-
-  - name: Allow 'ubuntu' user to have passwordless sudo
-    ansible.builtin.lineinfile:
-      path: /etc/sudoers.d/ubuntu_sudo
-      line: 'ubuntu ALL=(ALL) NOPASSWD:ALL'
-      state: present
-      mode: '0440'
-      create: true
-      validate: '/usr/sbin/visudo -cf %s'
-
-# ── Test Ansible connectivity ─────────────────────────────────────────────────
-
-- name: Test Ansible connectivity
-  hosts: all
-  gather_facts: false
-  tasks:
-  - name: Ping all hosts
-    ansible.builtin.ping:
-    register: ping_result
-
-  - name: Show ping result
-    ansible.builtin.debug:
-      var: ping_result
+- name: Import common setup
+  ansible.builtin.import_playbook: playbooks/common_setup.yaml
 
 # ── Deploy Nomad ──────────────────────────────────────────────────────────────
 
 - name: Import Nomad server playbook
-  ansible.builtin.import_playbook: nomad_servers.yaml
+  ansible.builtin.import_playbook: playbooks/nomad_servers.yaml
 
 - name: Import Nomad client playbook
-  ansible.builtin.import_playbook: nomad_clients.yaml
+  ansible.builtin.import_playbook: playbooks/nomad_clients.yaml
 
 - name: Bootstrap Nomad ACL
-  ansible.builtin.import_playbook: nomad_acl_bootstrap.yaml
+  ansible.builtin.import_playbook: playbooks/nomad_acl_bootstrap.yaml
 
-# ── Nomad cluster status summary ──────────────────────────────────────────────
+# ── Cluster status summary ────────────────────────────────────────────────────
 
-- name: Nomad cluster status summary
-  hosts: localhost
-  gather_facts: false
-  become: false
-  tasks:
-  - name: Display cluster access tokens
-    ansible.builtin.debug:
-      msg:
-      - "=========================================="
-      - "Cluster Access Tokens"
-      - "=========================================="
-      - ""
-      - "Nomad bootstrap token:"
-      - "  {{ lookup('file', playbook_dir + '/nomad-bootstrap-secret-id.txt', errors='ignore') or '(not found — run nomad_acl_bootstrap.yaml)' }}"
-
-  - name: Display environment variable export instructions
-    ansible.builtin.debug:
-      msg:
-      - "=========================================="
-      - "Environment Variables"
-      - "=========================================="
-      - ""
-      - "Run the following to set environment variables in your terminal:"
-      - ""
-      - "  export NOMAD_ADDR=http://{{ hostvars[groups['servers'][0]]['ansible_host'] }}:4646"
-      - "  export NOMAD_TOKEN={{ lookup('file', playbook_dir + '/nomad-bootstrap-secret-id.txt', errors='ignore') or '(not found)' }}"
-      - ""
-      - "Or source the helper script from the ansible/ directory:"
-      - "  source ./set-cluster-env.sh"
-      - "  source ./unset-cluster-env.sh   # to unset"
-
-  - name: Display completion message
-    ansible.builtin.debug:
-      msg:
-      - "=========================================="
-      - "Nomad Cluster Configuration Complete!"
-      - "=========================================="
-      - ""
-      - "Servers configured: {{ groups['servers'] | length }}"
-      - "Clients configured: {{ groups['clients'] | length }}"
-      - ""
-      - "SSH Access to Servers:"
-      - "{% for host in groups['servers'] %}  ssh -o 'IdentitiesOnly=yes' -i ssh_key.pem ubuntu@{{ hostvars[host]['ansible_host'] }}  # {{ host }}{% endfor %}"
-      - ""
-      - "SSH Access to Clients:"
-      - "{% for host in groups['clients'] %}  ssh -o 'IdentitiesOnly=yes' -i ssh_key.pem ubuntu@{{ hostvars[host]['ansible_host'] }}  # {{ host }}{% endfor %}"
-      - ""
-      - "Access Nomad UI at:"
-      - "{% for host in groups['servers'] %}  http://{{ hostvars[host]['ansible_host'] }}:4646{% endfor %}"
-      - ""
-      - "Next steps:"
-      - "  1. SSH to a server and verify Nomad cluster: nomad server members"
-      - "  2. Check Nomad nodes: nomad node status"
-      - "  3. Deploy a test job: nomad job run example.nomad"
+- name: Import cluster summary
+  ansible.builtin.import_playbook: playbooks/cluster_summary.yaml
+  vars:
+    summary_title: "Nomad Cluster Configuration Complete!"
+    summary_show_nomad_tokens: true
+    summary_show_nomad_env: true
+    summary_show_nomad_ui: true
+    

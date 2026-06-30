@@ -1,6 +1,6 @@
-# Nomad + Consul cluster deployment guide
+# Nomad plus Consul cluster deployment guide
 
-Step-by-step instructions for deploying the co-located HashiCorp Consul v2.0.1 and Nomad v2.0.0 cluster on AWS.
+Step-by-step instructions for deploying a co-located HashiCorp Consul and Nomad cluster on AWS.
 
 ## Overview
 
@@ -200,13 +200,8 @@ Run `consul_servers.yaml` before `consul_clients.yaml`. Clients join the server 
 #### Install and configure Consul servers
 
 ```bash
-ansible-playbook -i inventory.ini consul_servers.yaml
-```
-
-Installs on each **server** node (in role order):
-
-1. `common` — sets hostname, installs base packages
-2. `geerlingguy.docker` — installs Docker CE, adds `ubuntu` user to docker group
+ansible-playbook -i inventory.ini playbooks/consul_servers.yaml
+``` — installs Docker CE, adds `ubuntu` user to docker group
 3. `helper` — installs apt packages: jq, net-tools, unzip, nano, curl
 4. `consul` — installs Consul 2.0.1, writes `/etc/consul.d/consul.hcl`, creates systemd unit, starts service
 
@@ -226,10 +221,8 @@ Post-task: waits for Consul HTTP API on `127.0.0.1:8500`, then prints the UI URL
 #### Install and configure Consul clients
 
 ```bash
-ansible-playbook -i inventory.ini consul_clients.yaml
+ansible-playbook -i inventory.ini playbooks/consul_clients.yaml
 ```
-
-Installs on each **client** node (same role stack as servers):
 
 1. `common`
 2. `geerlingguy.docker`
@@ -254,15 +247,10 @@ Run after the Consul layer is up. Run `nomad_servers.yaml` before `nomad_clients
 #### Install and configure Nomad servers
 
 ```bash
-ansible-playbook -i inventory.ini nomad_servers.yaml
-```
-
-Installs on each **server** node (in role order):
-
-1. `common` — sets hostname, installs base packages
-2. `tls` — generates self-signed TLS certificates on the control machine (only when `nomad_tls_enabled: true`)
+ansible-playbook -i inventory.ini playbooks/nomad_servers.yaml
+``` — generates self-signed TLS certificates on the control machine (only when `nomad_tls_enabled: true`)
 3. `helper` — installs build-essential, git, jq, net-tools, unzip, nano; copies TLS certs to `/etc/nomad.d/.tls/`
-4. `nomad` — installs Nomad 2.0.0, writes `/etc/nomad.d/nomad.hcl`, creates systemd unit, starts service
+4. `nomad` — installs Nomad 2.0.3, writes `/etc/nomad.d/nomad.hcl`, creates systemd unit, starts service
 
 Key configuration values applied by this playbook:
 
@@ -281,17 +269,12 @@ Post-task: waits for Nomad HTTP API on port 4646.
 #### Install and configure Nomad clients
 
 ```bash
-ansible-playbook -i inventory.ini nomad_clients.yaml
-```
-
-Installs on each **client** node (in role order):
-
-1. `common`
-2. `cni` — installs CNI plugins (Ubuntu only)
+ansible-playbook -i inventory.ini playbooks/nomad_clients.yaml
+``` — installs CNI plugins (Ubuntu only)
 3. `geerlingguy.docker` — installs Docker CE
 4. `tls` — generates TLS certs (only when `nomad_tls_enabled: true`)
 5. `helper` — installs packages; loads `bridge` kernel module; copies TLS certs
-6. `nomad` — installs Nomad 2.0.0 in client mode
+6. `nomad` — installs Nomad 2.0.3 in client mode
 
 Key configuration values:
 
@@ -315,7 +298,7 @@ Both Consul servers and all Nomad nodes have ACLs enabled by default in their pl
 ### Consul ACL bootstrap
 
 ```bash
-ansible-playbook -i inventory.ini consul_acl_bootstrap.yaml
+ansible-playbook -i inventory.ini playbooks/consul_acl_bootstrap.yaml
 ```
 
 Targets `servers[0]` (first server only). Calls `consul acl bootstrap`, saves the management token locally (mode 0600), and exits cleanly on re-runs.
@@ -324,13 +307,13 @@ Targets `servers[0]` (first server only). Calls `consul acl bootstrap`, saves th
 
 | File | Contents |
 |------|----------|
-| `ansible/consul-bootstrap-token-output.txt` | Full bootstrap output + usage notes |
-| `ansible/consul-bootstrap-secret-id.txt` | SecretID only, for scripting |
+| `ansible/tokens/consul-bootstrap-token-output.txt` | Full bootstrap output + usage notes |
+| `ansible/tokens/consul-bootstrap-secret-id.txt` | SecretID only, for scripting |
 
 **Use the token:**
 
 ```bash
-export CONSUL_HTTP_TOKEN=$(cat ansible/consul-bootstrap-secret-id.txt)
+export CONSUL_HTTP_TOKEN=$(cat ansible/tokens/consul-bootstrap-secret-id.txt)
 consul members
 consul acl token read -self
 ```
@@ -338,7 +321,7 @@ consul acl token read -self
 ### Nomad ACL bootstrap
 
 ```bash
-ansible-playbook -i inventory.ini nomad_acl_bootstrap.yaml
+ansible-playbook -i inventory.ini playbooks/nomad_acl_bootstrap.yaml
 ```
 
 Targets `servers[0]`. Calls `nomad acl bootstrap`, saves the management token locally (mode 0600), and exits cleanly on re-runs.
@@ -347,13 +330,13 @@ Targets `servers[0]`. Calls `nomad acl bootstrap`, saves the management token lo
 
 | File | Contents |
 |------|----------|
-| `ansible/nomad-bootstrap-token-output.txt` | Full bootstrap output + usage notes |
-| `ansible/nomad-bootstrap-secret-id.txt` | SecretID only, for scripting |
+| `ansible/tokens/nomad-bootstrap-token-output.txt` | Full bootstrap output + usage notes |
+| `ansible/tokens/nomad-bootstrap-secret-id.txt` | SecretID only, for scripting |
 
 **Use the token:**
 
 ```bash
-export NOMAD_TOKEN=$(cat ansible/nomad-bootstrap-secret-id.txt)
+export NOMAD_TOKEN=$(cat ansible/tokens/nomad-bootstrap-secret-id.txt)
 nomad server members
 nomad acl token self
 ```

@@ -17,4 +17,4 @@ cni_plugins_url: "https://github.com/containernetworking/plugins/releases/downlo
 # - content: The content of the CNI configuration file in JSON format
 cni_configs: []
 
-# Made with Bob
+

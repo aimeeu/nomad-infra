@@ -42,7 +42,7 @@ applyTo: "ansible/**"
 
 ## Security-Safe Edits
 
-- Treat these as sensitive and never expose them in output or commits: `ansible/ssh_key.pem`, `ansible/nomad-bootstrap-secret-id.txt`, `ansible/nomad-bootstrap-token-output.txt`, and generated TLS files.
+- Treat these as sensitive and never expose them in output or commits: `ansible/ssh_key.pem`, `ansible/tokens/` (all token files), and `ansible/.tls/` (generated TLS files).
 - When changing firewall/security guidance, preserve warnings that default SSH exposure, Nomad UI (port 4646), and Consul UI (port 8500) exposure must be restricted for production.
 - Keep ACL behavior explicit: this repo defaults to disabled ACLs (`nomad_acl_enabled: false`, `consul_acl_enabled: false`). Use `nomad_acl_bootstrap.yaml` as an optional post-deploy step.
 - Add `no_log: true` to any task that renders or transmits secrets (gossip keys, ACL tokens, TLS private keys).

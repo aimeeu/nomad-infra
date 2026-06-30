@@ -43,4 +43,4 @@
         path: "/tmp/{{ hashicorp_release_product_name }}.zip"
         state: absent
 
-# Made with Bob
+

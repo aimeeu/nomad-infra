@@ -23,4 +23,4 @@
     var: hostvars[inventory_hostname]
   when: helper_print_host_facts is true
 
-# Made with Bob
+

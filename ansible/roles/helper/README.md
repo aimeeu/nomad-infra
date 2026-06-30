@@ -38,22 +38,16 @@ This role is used in both server and client playbooks for various utility operat
 **Server Playbook** (`playbooks/nomad_servers.yaml`):
 ```yaml
 - role: helper
+  when: nomad_tls_enabled | bool
   vars:
-    helper_apt_packages:
-      - jq
-      - net-tools
-      - unzip
-      - nano
-      - build-essential
-      - git
     helper_file_copy_local:
-      - src: "{{ playbook_dir }}/../.tls/ca.pem"
+      - src: "{{ inventory_dir }}/.tls/ca.pem"
         dst: "/etc/nomad.d/.tls/ca.crt"
         mode: "0644"
-      - src: "{{ playbook_dir }}/../.tls/{{ inventory_hostname }}.pem"
+      - src: "{{ inventory_dir }}/.tls/{{ inventory_hostname }}.pem"
         dst: "/etc/nomad.d/.tls/nomad.crt"
         mode: "0644"
-      - src: "{{ playbook_dir }}/../.tls/{{ inventory_hostname }}-key.pem"
+      - src: "{{ inventory_dir }}/.tls/{{ inventory_hostname }}-key.pem"
         dst: "/etc/nomad.d/.tls/nomad.key"
         mode: "0600"
 ```
@@ -61,25 +55,16 @@ This role is used in both server and client playbooks for various utility operat
 **Client Playbook** (`playbooks/nomad_clients.yaml`):
 ```yaml
 - role: helper
+  when: nomad_tls_enabled | bool
   vars:
-    helper_apt_packages:
-      - jq
-      - net-tools
-      - unzip
-      - build-essential
-      - git
-    helper_file_write_content:
-      - content: "bridge"
-        dst: "/etc/modules-load.d/nomad.conf"
-        mode: "0644"
     helper_file_copy_local:
-      - src: "{{ playbook_dir }}/../.tls/ca.pem"
+      - src: "{{ inventory_dir }}/.tls/ca.pem"
         dst: "/etc/nomad.d/.tls/ca.crt"
         mode: "0644"
-      - src: "{{ playbook_dir }}/../.tls/{{ inventory_hostname }}.pem"
+      - src: "{{ inventory_dir }}/.tls/{{ inventory_hostname }}.pem"
         dst: "/etc/nomad.d/.tls/nomad.crt"
         mode: "0644"
-      - src: "{{ playbook_dir }}/../.tls/{{ inventory_hostname }}-key.pem"
+      - src: "{{ inventory_dir }}/.tls/{{ inventory_hostname }}-key.pem"
         dst: "/etc/nomad.d/.tls/nomad.key"
         mode: "0600"
 ```
@@ -192,7 +177,7 @@ Write content to files on the Ansible control machine:
   vars:
     helper_file_write_content_local:
       - content: "{{ nomad_token }}"
-        dst: "{{ playbook_dir }}/nomad_token.txt"
+        dst: "{{ inventory_dir }}/tokens/nomad_token.txt"
         mode: "0600"
 ```
 
@@ -270,7 +255,7 @@ Print all host variables for troubleshooting:
         # Save token locally
         helper_file_write_content_local:
           - content: "{{ generated_token }}"
-            dst: "{{ playbook_dir }}/token.txt"
+            dst: "{{ inventory_dir }}/tokens/token.txt"
             mode: "0600"
         
         # Start service

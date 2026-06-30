@@ -17,7 +17,7 @@ The TLS role generates TLS certificates for secure communication in the Nomad cl
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `tls_path` | string | `{{ playbook_dir }}/.tls` | Directory to store certificates |
+| `tls_path` | string | `{{ inventory_dir }}/.tls` | Directory to store certificates |
 | `tls_ca_generate` | bool | `true` | Generate CA certificate |
 | `tls_ca_pem_filename` | string | `ca.pem` | CA certificate filename |
 | `tls_ca_key_filename` | string | `ca-key.pem` | CA private key filename |
@@ -34,10 +34,10 @@ Each item in `tls_self_signed_generate` should contain:
 
 ## Generated files
 
-The role creates the following files in `{{ tls_path }}`:
+The role creates the following files in `{{ tls_path }}` (default: `ansible/.tls/`):
 
 ```
-.tls/
+ansible/.tls/
 ├── ca.pem                           # CA certificate (public)
 ├── ca-key.pem                       # CA private key (sensitive)
 ├── <agent-name>.pem                 # Node certificate (public)
@@ -46,38 +46,34 @@ The role creates the following files in `{{ tls_path }}`:
 
 ## Usage
 
-### In Playbooks
+This role is used in the role list of both server and client playbooks to generate certificates before other roles run. The `when: nomad_tls_enabled` condition ensures the role is skipped when TLS is disabled.
 
-This role is used in **pre_tasks** of both server and client playbooks to generate certificates before other roles run.
-
-**Server Playbook** (`playbooks/nomad_servers.yaml`):
+**Server playbook** (`playbooks/nomad_servers.yaml`):
 ```yaml
-pre_tasks:
-  - name: Generate TLS certificates
-    ansible.builtin.include_role:
-      name: tls
-    vars:
-      tls_self_signed_generate:
-        - agent-name: "{{ inventory_hostname }}"
-          ip: "{{ ansible_default_ipv4.address }}"
-          dns: "{{ inventory_hostname }}"
-    run_once: true
-    delegate_to: localhost
+- role: tls
+  when: nomad_tls_enabled
+- role: tls
+  tls_self_signed_generate:
+  - agent-name: "{{ inventory_hostname }}"
+    ip: "{{ ansible_facts['default_ipv4']['address'] }}"
+    dns: "client.global.nomad"
 ```
 
-**Client Playbook** (`playbooks/nomad_clients.yaml`):
+**Cert distribution** (separate `helper` role call, also in `nomad_servers.yaml`):
 ```yaml
-pre_tasks:
-  - name: Generate TLS certificates
-    ansible.builtin.include_role:
-      name: tls
-    vars:
-      tls_self_signed_generate:
-        - agent-name: "{{ inventory_hostname }}"
-          ip: "{{ ansible_default_ipv4.address }}"
-          dns: "{{ inventory_hostname }}"
-    run_once: true
-    delegate_to: localhost
+- role: helper
+  when: nomad_tls_enabled | bool
+  vars:
+    helper_file_copy_local:
+    - src: "{{ inventory_dir }}/.tls/ca.pem"
+      dst: "/etc/nomad.d/.tls/ca.crt"
+      mode: "0644"
+    - src: "{{ inventory_dir }}/.tls/{{ inventory_hostname }}.pem"
+      dst: "/etc/nomad.d/.tls/nomad.crt"
+      mode: "0644"
+    - src: "{{ inventory_dir }}/.tls/{{ inventory_hostname }}-key.pem"
+      dst: "/etc/nomad.d/.tls/nomad.key"
+      mode: "0600"
 ```
 
 ## Certificate details
@@ -100,20 +96,9 @@ pre_tasks:
 
 ## Certificate distribution
 
-After generation, certificates are distributed by the **helper role**:
+After generation, certificates are distributed by the **helper** role (see `playbooks/nomad_servers.yaml` and `playbooks/nomad_clients.yaml`).
 
-```yaml
-- role: helper
-  vars:
-    helper_file_copy_local:
-      - src: "{{ playbook_dir }}/../.tls/ca.pem"
-        dst: "/etc/nomad.d/.tls/ca.crt"
-      - src: "{{ playbook_dir }}/../.tls/{{ inventory_hostname }}.pem"
-        dst: "/etc/nomad.d/.tls/nomad.crt"
-      - src: "{{ playbook_dir }}/../.tls/{{ inventory_hostname }}-key.pem"
-        dst: "/etc/nomad.d/.tls/nomad.key"
-        mode: "0600"
-```
+Certificates are written to `/etc/nomad.d/.tls/` on each node.
 
 ## Dependencies
 

@@ -1,6 +1,6 @@
 # nomad-infra Agent Guidelines
 
-Terraform + Ansible project that deploys a production-ready HashiCorp Nomad cluster (3 servers + 2 clients) **with a co-located Consul cluster** on AWS. See [README.md](README.md) and [DEPLOYMENT.md](DEPLOYMENT.md) for full context.
+Terraform + Ansible project that deploys a production-ready HashiCorp Nomad cluster (3 servers + 2 clients) **with a co-located Consul cluster** on AWS. See [README.md](README.md) and [DEPLOY_CLUSTER_GUIDE.MD](DEPLOY_CLUSTER_GUIDE.MD) for full context.
 
 ## Architecture
 
@@ -28,17 +28,21 @@ terraform apply         # generates ansible/inventory.ini automatically
 cd ../../ansible
 ansible-galaxy install -r requirements.yaml
 
-# 3. Configure full cluster (Consul first, then Nomad)
-ansible-playbook -i inventory.ini site.yaml
+# 3. Deploy cluster — choose one use case entrypoint
+ansible-playbook -i inventory.ini deploy_consul.yaml            # Consul only
+ansible-playbook -i inventory.ini deploy_nomad.yaml             # Nomad only
+ansible-playbook -i inventory.ini deploy_consul_nomad_sd.yaml   # Consul + Nomad + service discovery
+ansible-playbook -i inventory.ini deploy_consul_nomad_wi.yaml   # Consul + Nomad + workload identity
 
-# or run layers individually (Consul must precede Nomad):
-ansible-playbook -i inventory.ini consul_servers.yaml
-ansible-playbook -i inventory.ini consul_clients.yaml
-ansible-playbook -i inventory.ini nomad_servers.yaml
-ansible-playbook -i inventory.ini nomad_clients.yaml
+# or run individual layers in dependency order:
+ansible-playbook -i inventory.ini playbooks/consul_servers.yaml
+ansible-playbook -i inventory.ini playbooks/consul_clients.yaml
+ansible-playbook -i inventory.ini playbooks/nomad_servers.yaml
+ansible-playbook -i inventory.ini playbooks/nomad_clients.yaml
 
-# 4. Bootstrap Nomad ACLs (optional, post-cluster)
-ansible-playbook -i inventory.ini nomad_acl_bootstrap.yaml
+# 4. Bootstrap ACLs (post-cluster, when not using a use case playbook)
+ansible-playbook -i inventory.ini playbooks/consul_acl_bootstrap.yaml
+ansible-playbook -i inventory.ini playbooks/nomad_acl_bootstrap.yaml
 ```
 
 ## Conventions
@@ -58,14 +62,21 @@ ansible-playbook -i inventory.ini nomad_acl_bootstrap.yaml
 - Key version variables: `nomad_binary_version` in [roles/nomad/defaults/main.yaml](ansible/roles/nomad/defaults/main.yaml), `consul_binary_version` in [roles/consul/defaults/main.yaml](ansible/roles/consul/defaults/main.yaml).
 - Server/client mode is toggled by role variables (`nomad_server_enabled`, `consul_server_enabled`) rather than separate role files.
 - All roles include `meta/argument_specs.yaml` for Ansible 2.11+ variable validation.
+- ACL bootstrap token files are written to `ansible/tokens/` (mode 0600). The `tokens/` directory is created by the bootstrap playbooks on first run.
 
 ## Sensitive Files (git-ignored, never commit)
 
 | File | Contents |
 |------|----------|
 | `ansible/ssh_key.pem` | Master SSH key for all EC2 instances |
-| `ansible/nomad-bootstrap-secret-id.txt` | Global management ACL token |
-| `ansible/nomad-bootstrap-token-output.txt` | ACL bootstrap output |
+| `ansible/tokens/consul-bootstrap-token-output.txt` | Full Consul ACL bootstrap output |
+| `ansible/tokens/consul-bootstrap-secret-id.txt` | Consul management ACL SecretID |
+| `ansible/tokens/nomad-bootstrap-token-output.txt` | Full Nomad ACL bootstrap output |
+| `ansible/tokens/nomad-bootstrap-secret-id.txt` | Nomad management ACL SecretID |
+| `ansible/tokens/nomad-consul-server-token-output.txt` | Full Consul token output for Nomad server agents |
+| `ansible/tokens/nomad-consul-server-secret-id.txt` | Consul token SecretID for Nomad server agents |
+| `ansible/tokens/nomad-consul-client-token-output.txt` | Full Consul token output for Nomad client agents |
+| `ansible/tokens/nomad-consul-client-secret-id.txt` | Consul token SecretID for Nomad client agents |
 | `ansible/.tls/` | Generated TLS certificates |
 | `terraform/aws/terraform.tfvars` | AWS credentials / config |
 
@@ -80,7 +91,7 @@ ansible-playbook -i inventory.ini nomad_acl_bootstrap.yaml
 
 | Topic | File |
 |-------|------|
-| Full deployment walkthrough | [DEPLOYMENT.md](DEPLOYMENT.md) |
+| Full deployment walkthrough | [DEPLOY_CLUSTER_GUIDE.MD](DEPLOY_CLUSTER_GUIDE.MD) |
 | Terraform infrastructure | [terraform/aws/README.md](terraform/aws/README.md) |
 | Ansible playbooks | [ansible/PLAYBOOKS-README.md](ansible/PLAYBOOKS-README.md) |
 | ACL bootstrap procedure | [ansible/BOOTSTRAP_ACL_EXAMPLE.md](ansible/BOOTSTRAP_ACL_EXAMPLE.md) |

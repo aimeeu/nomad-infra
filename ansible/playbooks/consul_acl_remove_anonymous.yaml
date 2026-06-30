@@ -38,7 +38,7 @@
 
   - name: Check that bootstrap token file exists
     ansible.builtin.stat:
-      path: "{{ playbook_dir }}/consul-bootstrap-secret-id.txt"
+      path: "{{ inventory_dir }}/tokens/consul-bootstrap-secret-id.txt"
     register: token_file
     delegate_to: localhost
     become: false
@@ -46,13 +46,13 @@
   - name: Fail if bootstrap token file is missing
     ansible.builtin.fail:
       msg: >
-        consul-bootstrap-secret-id.txt not found in {{ playbook_dir }}.
+        consul-bootstrap-secret-id.txt not found in {{ inventory_dir }}/tokens.
         Run consul_acl_bootstrap.yaml first.
     when: not token_file.stat.exists
 
   - name: Read management token
     ansible.builtin.slurp:
-      src: "{{ playbook_dir }}/consul-bootstrap-secret-id.txt"
+      src: "{{ inventory_dir }}/tokens/consul-bootstrap-secret-id.txt"
     register: mgmt_token_raw
     delegate_to: localhost
     become: false

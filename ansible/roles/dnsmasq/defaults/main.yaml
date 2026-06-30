@@ -4,9 +4,6 @@
 # Package name
 dnsmasq_package: "dnsmasq"
 
-# Package version to install (apt version prefix; matches 2.93-* builds)
-dnsmasq_version: "2.93"
-
 # Path to dnsmasq configuration files
 dnsmasq_conf_file: "/etc/dnsmasq.conf"
 dnsmasq_conf_dir: "/etc/dnsmasq.d"

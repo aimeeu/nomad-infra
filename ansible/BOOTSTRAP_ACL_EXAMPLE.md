@@ -1,43 +1,39 @@
 # Nomad ACL bootstrap example
 
-This guide demonstrates how to bootstrap the Nomad ACL system using the `nomad_acl_bootstrap.yaml` playbook.
+This guide demonstrates how to bootstrap the Nomad ACL system using the `playbooks/nomad_acl_bootstrap.yaml` sub-playbook.
+
+> **Tip:** When you use a use case entrypoint such as `deploy_nomad.yaml` or `deploy_consul_nomad_sd.yaml`, ACL bootstrap runs automatically. Run this playbook directly only when you are deploying Nomad layer-by-layer.
 
 ## Prerequisites
 
 1. Nomad cluster deployed and running
 2. ACLs enabled in Nomad configuration (`nomad_acl_enabled: true`)
-3. Ansible inventory configured
+3. Ansible inventory configured at `ansible/inventory.ini`
 
-## Step 1: Enable ACLs in playbook
+## Step 1: Enable ACLs in the playbook
 
-Edit your server playbook to enable ACLs:
+ACLs are enabled by default in `playbooks/nomad_servers.yaml` and `playbooks/nomad_clients.yaml`:
 
 ```yaml
-# playbooks/nomad_servers.yaml
-- role: nomad
-  vars:
-    nomad_acl_enabled: true
-    nomad_server_enabled: true
-    nomad_server_bootstrap_expect: 3
+vars:
+  nomad_acl_enabled: true
 ```
 
-## Step 2: Deploy cluster with ACLs enabled
+## Step 2: Deploy the cluster with ACLs enabled
 
 ```bash
 cd ansible
-ansible-playbook playbooks/nomad_servers.yaml
-ansible-playbook playbooks/nomad_clients.yaml
+ansible-playbook -i inventory.ini playbooks/nomad_servers.yaml
+ansible-playbook -i inventory.ini playbooks/nomad_clients.yaml
 ```
 
-## Step 3: Bootstrap ACL system
-
-Run the bootstrap playbook:
+## Step 3: Bootstrap the ACL system
 
 ```bash
-ansible-playbook playbooks/nomad_acl_bootstrap.yaml
+ansible-playbook -i inventory.ini playbooks/nomad_acl_bootstrap.yaml
 ```
 
-### Expected Output
+### Expected output
 
 ```
 TASK [Display bootstrap success message] ***************************************
@@ -50,8 +46,8 @@ ok: [server-1] => {
         "Secret ID: 12345678-1234-1234-1234-123456789abc",
         "",
         "Token files saved to:",
-        "  - /path/to/ansible/nomad_bootstrap_token.txt (full details)",
-        "  - /path/to/ansible/nomad_bootstrap_secret_id.txt (token only)",
+        "  - ansible/tokens/nomad-bootstrap-token-output.txt (full details)",
+        "  - ansible/tokens/nomad-bootstrap-secret-id.txt (token only)",
         "",
         "IMPORTANT: Save these tokens securely!",
         "They provide full administrative access to your Nomad cluster.",
@@ -66,28 +62,27 @@ ok: [server-1] => {
 
 ## Step 4: Use the bootstrap token
 
-### Option A: Export as Environment Variable
+### Option A: Export as environment variable
 
 ```bash
-export NOMAD_TOKEN=$(cat ansible/nomad_bootstrap_secret_id.txt)
+export NOMAD_TOKEN=$(cat ansible/tokens/nomad-bootstrap-secret-id.txt)
 nomad status
 nomad node status
 ```
 
-### Option B: Use with Individual Commands
+### Option B: Use with individual commands
 
 ```bash
-nomad status -token=$(cat ansible/nomad_bootstrap_secret_id.txt)
+nomad status -token=$(cat ansible/tokens/nomad-bootstrap-secret-id.txt)
 ```
 
-### Option C: Configure Nomad CLI
+### Option C: Source the cluster environment script
 
-Create `~/.nomad` file:
-
-```hcl
-address = "http://your-server-ip:4646"
-token   = "12345678-1234-1234-1234-123456789abc"
+```bash
+source ansible/set-cluster-env.sh
 ```
+
+This sets `NOMAD_ADDR` and `NOMAD_TOKEN` in one step by reading from `ansible/tokens/`.
 
 ## Step 5: Create additional ACL tokens
 
@@ -129,14 +124,14 @@ nomad acl token create -name="developer-token" -policy=developer-policy
 
 ## Token files
 
-After bootstrap, you'll have two files:
+After bootstrap, two files are written to `ansible/tokens/` (mode 0600):
 
-### 1. nomad_bootstrap_token.txt (full details)
+### ansible/tokens/nomad-bootstrap-token-output.txt (full details)
 
 ```
 Nomad ACL Bootstrap Token
 =========================
-Generated: 2024-01-15T10:30:00Z
+Generated: 2024-01-15 10:30:00 UTC
 
 Accessor ID  = 12345678-1234-1234-1234-123456789abc
 Secret ID    = 12345678-1234-1234-1234-123456789abc
@@ -159,7 +154,7 @@ Or use with commands:
   nomad status -token=12345678-1234-1234-1234-123456789abc
 ```
 
-### 2. nomad_bootstrap_secret_id.txt (token only)
+### ansible/tokens/nomad-bootstrap-secret-id.txt (token only)
 
 ```
 12345678-1234-1234-1234-123456789abc
@@ -169,84 +164,51 @@ Or use with commands:
 
 ### ACL system already bootstrapped
 
-If you run the playbook again, you'll see:
-
-```
-TASK [Display already bootstrapped message with token] *************************
-ok: [server-1] => {
-    "msg": [
-        "==========================================",
-        "ACL SYSTEM ALREADY BOOTSTRAPPED",
-        "==========================================",
-        "",
-        "The ACL system was previously bootstrapped.",
-        "",
-        "Existing token found:",
-        "  Secret ID: 12345678-1234-1234-1234-123456789abc",
-        "",
-        "Token files location:",
-        "  - /path/to/ansible/nomad_bootstrap_token.txt",
-        "  - /path/to/ansible/nomad_bootstrap_secret_id.txt",
-        "",
-        "=========================================="
-    ]
-}
-```
+If you run the playbook again after a previous successful bootstrap, the playbook detects the already-bootstrapped state and exits cleanly without error.
 
 ### Lost bootstrap token
 
 If you lose the bootstrap token and the ACL system is already bootstrapped:
 
-1. **Option 1**: Use an existing management token to create a new one
+1. **Option 1**: Use an existing management token to create a new one.
 2. **Option 2**: Reset the ACL system (requires cluster restart):
-   ```bash
-   # Stop all Nomad servers
-   ansible servers -m service -a "name=nomad state=stopped" -b
-   
-   # Remove ACL state
-   ansible servers -m file -a "path=/opt/nomad/data/server/raft/raft.db state=absent" -b
-   
-   # Restart servers
-   ansible-playbook playbooks/nomad_servers.yaml
-   
-   # Bootstrap again
-   ansible-playbook playbooks/nomad_acl_bootstrap.yaml
-   ```
+
+```bash
+# Stop all Nomad servers
+ansible servers -m service -a "name=nomad state=stopped" -b
+
+# Remove ACL state
+ansible servers -m file -a "path=/opt/nomad/data/server/raft/raft.db state=absent" -b
+
+# Restart servers
+ansible-playbook -i inventory.ini playbooks/nomad_servers.yaml
+
+# Bootstrap again
+ansible-playbook -i inventory.ini playbooks/nomad_acl_bootstrap.yaml
+```
 
 ### ACLs not enabled
 
-If ACLs are not enabled in the Nomad configuration:
+If ACLs are not enabled in the Nomad configuration, the bootstrap fails with:
 
 ```
-TASK [Handle other bootstrap errors] *******************************************
 fatal: [server-1]: FAILED! => {
-    "msg": "Failed to bootstrap Nomad ACL system.\n\nError: ACL support disabled\n\nCommon issues:\n- ACLs may not be enabled in Nomad configuration\n- Nomad may not be fully started\n- Network connectivity issues\n\nCheck Nomad logs: sudo journalctl -u nomad -n 50"
+    "msg": "Failed to bootstrap Nomad ACL system.\n\nError: ACL support disabled"
 }
 ```
 
-**Solution**: Enable ACLs in your playbook and redeploy:
+**Solution**: Enable ACLs in your playbook vars and redeploy:
 
 ```yaml
-- role: nomad
-  vars:
-    nomad_acl_enabled: true
+vars:
+  nomad_acl_enabled: true
 ```
 
 ## Security best practices
 
-1. **Secure Token Storage**:
-   - Keep token files in a secure location
-   - Use a secrets manager (Vault, AWS Secrets Manager, and similar tools)
-   - Never commit tokens to version control
-
-2. **Principle of Least Privilege**:
-   - Don't use the bootstrap token for day-to-day operations
-   - Create specific tokens with limited permissions
-   - Rotate tokens regularly
-
-3. **Token Expiration**:
-   - Consider setting TTLs on tokens
-   - Implement token rotation policies
+1. **Secure token storage**: Keep token files in `ansible/tokens/` (already git-ignored). For production, store tokens in a secrets manager such as HashiCorp Vault or AWS Secrets Manager.
+2. **Principle of least privilege**: Do not use the bootstrap token for day-to-day operations. Create specific tokens with limited permissions.
+3. **Token expiration**: Consider setting TTLs on tokens and implementing token rotation policies.
 
 4. **Audit Logging**:
    - Enable audit logging in Nomad

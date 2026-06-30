@@ -75,7 +75,11 @@
       environment:
         CONSUL_HTTP_TOKEN: "{{ nomad_consul_bootstrap_secret_id }}"
         CONSUL_HTTP_ADDR: "{{ nomad_consul_http_addr }}"
-      changed_when: true
+      register: nomad_consul_server_policy_result
+      changed_when: nomad_consul_server_policy_result.rc == 0
+      failed_when:
+        - nomad_consul_server_policy_result.rc != 0
+        - '"already exists" not in nomad_consul_server_policy_result.stderr'
 
     - name: Create Consul ACL policy for Nomad clients
       become: true
@@ -87,7 +91,11 @@
       environment:
         CONSUL_HTTP_TOKEN: "{{ nomad_consul_bootstrap_secret_id }}"
         CONSUL_HTTP_ADDR: "{{ nomad_consul_http_addr }}"
-      changed_when: true
+      register: nomad_consul_client_policy_result
+      changed_when: nomad_consul_client_policy_result.rc == 0
+      failed_when:
+        - nomad_consul_client_policy_result.rc != 0
+        - '"already exists" not in nomad_consul_client_policy_result.stderr'
 
     # -- Create Consul ACL tokens and save locally ----------------------------
 
@@ -178,8 +186,6 @@
     - name: Write Consul-Nomad service discovery bootstrapped sentinel file
       become: true
       ansible.builtin.copy:
-        content: >-
-          Consul-Nomad service discovery bootstrapped on
-          {{ ansible_date_time.date }} {{ ansible_date_time.time }}{{ ansible_date_time.tz }}.
+        content: "Consul-Nomad service discovery bootstrapped on {{ now(fmt='%Y-%m-%d %H:%M:%S %Z') }}.\n"
         dest: "{{ nomad_consul_sd_bootstrapped_file }}"
         mode: "0644"

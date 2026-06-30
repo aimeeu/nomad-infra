@@ -151,8 +151,6 @@
     - name: Write Consul-Nomad workload identity bootstrapped sentinel file
       become: true
       ansible.builtin.copy:
-        content: >-
-          Consul-Nomad workload identity bootstrapped on
-          {{ ansible_date_time.date }} {{ ansible_date_time.time }}{{ ansible_date_time.tz }}.
+        content: "Consul-Nomad workload identity bootstrapped on {{ now(fmt='%Y-%m-%d %H:%M:%S %Z') }}.\n"
         dest: "{{ nomad_consul_wi_bootstrapped_file }}"
         mode: "0644"

@@ -33,7 +33,7 @@ fi
 
 # Read the first server's public IP from the [servers] group in inventory.ini
 _SERVER_IP=$(awk '/^\[servers\]/{found=1; next} found && /^[^[#[:space:]]/{print; exit}' \
-    "${_INVENTORY}" | grep -oP 'ansible_host=\K[^ ]+')
+    "${_INVENTORY}" | awk -F'ansible_host=' '{print $2}' | awk '{print $1}')
 
 if [[ -z "${_SERVER_IP}" ]]; then
     echo "ERROR: Could not read a server IP from ${_INVENTORY}" >&2
@@ -46,7 +46,7 @@ echo "Setting cluster environment variables (server: ${_SERVER_IP}):"
 echo ""
 
 # ── Consul ────────────────────────────────────────────────────────────────────
-_CONSUL_TOKEN_FILE="${_SCRIPT_DIR}/consul-bootstrap-secret-id.txt"
+_CONSUL_TOKEN_FILE="${_SCRIPT_DIR}/tokens/consul-bootstrap-secret-id.txt"
 if [[ -f "${_CONSUL_TOKEN_FILE}" ]]; then
     export CONSUL_HTTP_ADDR="http://${_SERVER_IP}:8500"
     export CONSUL_HTTP_TOKEN="$(cat "${_CONSUL_TOKEN_FILE}")"
@@ -58,7 +58,7 @@ else
 fi
 
 # ── Nomad ─────────────────────────────────────────────────────────────────────
-_NOMAD_TOKEN_FILE="${_SCRIPT_DIR}/nomad-bootstrap-secret-id.txt"
+_NOMAD_TOKEN_FILE="${_SCRIPT_DIR}/tokens/nomad-bootstrap-secret-id.txt"
 if [[ -f "${_NOMAD_TOKEN_FILE}" ]]; then
     export NOMAD_ADDR="http://${_SERVER_IP}:4646"
     export NOMAD_TOKEN="$(cat "${_NOMAD_TOKEN_FILE}")"

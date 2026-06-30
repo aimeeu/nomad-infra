@@ -95,7 +95,6 @@
 
 - name: Validate Consul configuration
   become: true
-  become_user: "{{ consul_user }}"
   ansible.builtin.command: /usr/local/bin/consul validate {{ consul_config_dir }}
   changed_when: false
   tags: consul_validate
@@ -112,6 +111,9 @@
     - Reload systemd
     - Enable consul
   tags: consul_service
+
+- name: Flush handlers to reload systemd before starting consul
+  ansible.builtin.meta: flush_handlers
 
 - name: Ensure Consul service is started and enabled
   become: true

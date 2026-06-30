@@ -86,7 +86,7 @@
   - name: Read Nomad server Consul SecretID from local file
     become: false
     ansible.builtin.command: >-
-      cat {{ playbook_dir }}/nomad-consul-server-secret-id.txt
+      cat {{ inventory_dir }}/tokens/nomad-consul-server-secret-id.txt
     changed_when: false
     delegate_to: localhost
     run_once: true
@@ -122,7 +122,7 @@
   - name: Read Nomad client Consul SecretID from local file
     become: false
     ansible.builtin.command: >-
-      cat {{ playbook_dir }}/nomad-consul-client-secret-id.txt
+      cat {{ inventory_dir }}/tokens/nomad-consul-client-secret-id.txt
     changed_when: false
     delegate_to: localhost
     run_once: true

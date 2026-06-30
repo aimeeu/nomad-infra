@@ -36,7 +36,7 @@ argument_specs:
         description: >-
           Local path to the file containing the Consul bootstrap SecretID.
           Written by consul_acl_bootstrap.yaml. Defaults to
-          {{ playbook_dir }}/consul-bootstrap-secret-id.txt.
+          {{ inventory_dir }}/tokens/consul-bootstrap-secret-id.txt.
 
       nomad_consul_bootstrapped_file:
         type: str

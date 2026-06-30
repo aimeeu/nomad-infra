@@ -9,4 +9,4 @@
   loop: "{{ helper_yum_packages }}"
   when: helper_yum_packages | length > 0
 
-# Made with Bob
+

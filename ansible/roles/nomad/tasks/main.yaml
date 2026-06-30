@@ -66,6 +66,9 @@
     - Reload systemd
     - Enable nomad
 
+- name: Flush handlers to reload systemd before starting Nomad
+  ansible.builtin.meta: flush_handlers
+
 - name: Ensure Nomad service is started
   become: true
   ansible.builtin.systemd_service:
@@ -73,4 +76,4 @@
     state: started
     enabled: true
 
-# Made with Bob
+

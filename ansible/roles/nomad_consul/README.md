@@ -31,23 +31,23 @@ All operations in each phase are guarded by their own sentinel file and run exac
 
 ## Prerequisites
 
-- Consul cluster deployed and healthy (`consul_servers.yaml` + `consul_clients.yaml`)
-- Consul ACL bootstrapped (`consul_acl_bootstrap.yaml`)
-- `consul-bootstrap-secret-id.txt` present in `{{ playbook_dir }}`
+- Consul cluster deployed and healthy (`playbooks/consul_servers.yaml` + `playbooks/consul_clients.yaml`)
+- Consul ACL bootstrapped (`playbooks/consul_acl_bootstrap.yaml`)
+- `ansible/tokens/consul-bootstrap-secret-id.txt` present
 - The Nomad cluster must be deployed and running (its JWKS endpoint must be
   reachable by Consul servers for the JWT auth method to work)
 
 ## Local output files
 
-After a successful run the following files are written to the Ansible control
+After a successful run the following files are written to `ansible/tokens/` on the Ansible control
 machine (mode `0600`):
 
 | File | Contents |
 |------|----------|
-| `nomad-consul-server-token-output.txt` | Full `consul acl token create` output for the Nomad server token |
-| `nomad-consul-server-secret-id.txt` | SecretID only — consumed by `consul_nomad_integration.yaml` |
-| `nomad-consul-client-token-output.txt` | Full `consul acl token create` output for the Nomad client token |
-| `nomad-consul-client-secret-id.txt` | SecretID only — consumed by `consul_nomad_integration.yaml` |
+| `ansible/tokens/nomad-consul-server-token-output.txt` | Full `consul acl token create` output for the Nomad server token |
+| `ansible/tokens/nomad-consul-server-secret-id.txt` | SecretID only — consumed by `consul_nomad_service_discovery.yaml` |
+| `ansible/tokens/nomad-consul-client-token-output.txt` | Full `consul acl token create` output for the Nomad client token |
+| `ansible/tokens/nomad-consul-client-secret-id.txt` | SecretID only — consumed by `consul_nomad_service_discovery.yaml` |
 
 These files contain sensitive credentials. They are git-ignored by default; do
 not commit them.
@@ -81,7 +81,7 @@ ansible-playbook -i inventory.ini consul_nomad_service_discovery.yaml
 |----------|---------|-------------|
 | `nomad_consul_http_addr` | `http://127.0.0.1:8500` | Consul HTTP API address |
 | `nomad_consul_bin_path` | `/usr/local/bin/consul` | Path to Consul binary |
-| `nomad_consul_bootstrap_secret_id_file` | `{{ playbook_dir }}/consul-bootstrap-secret-id.txt` | Local file with Consul bootstrap SecretID |
+| `nomad_consul_bootstrap_secret_id_file` | `{{ inventory_dir }}/tokens/consul-bootstrap-secret-id.txt` | Local file with Consul bootstrap SecretID |
 
 ### JWT auth method variables
 

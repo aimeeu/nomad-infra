@@ -88,12 +88,12 @@ The role creates the following directories:
     nomad_cloud_auto_join_tag_value: "server"
 ```
 
-**With Consul Integration** (via `consul_nomad_integration.yaml` pre_tasks):
+**With Consul integration** (as run by `playbooks/consul_nomad_service_discovery.yaml`):
 ```yaml
 - role: nomad
   vars:
     nomad_consul_integration_enabled: true
-    nomad_consul_agent_token: "{{ lookup('file', 'nomad-consul-server-secret-id.txt') }}"
+    nomad_consul_agent_token: "{{ lookup('file', inventory_dir + '/tokens/nomad-consul-server-secret-id.txt') }}"
 ```
 
 ## Configuration templates
