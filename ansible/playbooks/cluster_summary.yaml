@@ -45,24 +45,24 @@
     ansible.builtin.debug:
       msg:
       - "Consul bootstrap token:"
-      - "  {{ lookup('file', inventory_dir + '/tokens/consul-bootstrap-secret-id.txt', errors='ignore') or '(not found — run consul_acl_bootstrap.yaml)' }}"
+      - "  {{ lookup('file', hostvars[groups['servers'][0]]['inventory_dir'] + '/tokens/consul-bootstrap-secret-id.txt', errors='ignore') or '(not found — run consul_acl_bootstrap.yaml)' }}"
     when: summary_show_consul_tokens | default(false) | bool
 
   - name: Display Nomad bootstrap token
     ansible.builtin.debug:
       msg:
       - "Nomad bootstrap token:"
-      - "  {{ lookup('file', inventory_dir + '/tokens/nomad-bootstrap-secret-id.txt', errors='ignore') or '(not found — run nomad_acl_bootstrap.yaml)' }}"
+      - "  {{ lookup('file', hostvars[groups['servers'][0]]['inventory_dir'] + '/tokens/nomad-bootstrap-secret-id.txt', errors='ignore') or '(not found — run nomad_acl_bootstrap.yaml)' }}"
     when: summary_show_nomad_tokens | default(false) | bool
 
   - name: Display service discovery agent tokens
     ansible.builtin.debug:
       msg:
       - "Nomad server agent -> Consul token:"
-      - "  {{ lookup('file', inventory_dir + '/tokens/nomad-consul-server-secret-id.txt', errors='ignore') or '(not found — run consul_nomad_service_discovery.yaml)' }}"
+      - "  {{ lookup('file', hostvars[groups['servers'][0]]['inventory_dir'] + '/tokens/nomad-consul-server-secret-id.txt', errors='ignore') or '(not found — run consul_nomad_service_discovery.yaml)' }}"
       - ""
       - "Nomad client agent -> Consul token:"
-      - "  {{ lookup('file', inventory_dir + '/tokens/nomad-consul-client-secret-id.txt', errors='ignore') or '(not found — run consul_nomad_service_discovery.yaml)' }}"
+      - "  {{ lookup('file', hostvars[groups['servers'][0]]['inventory_dir'] + '/tokens/nomad-consul-client-secret-id.txt', errors='ignore') or '(not found — run consul_nomad_service_discovery.yaml)' }}"
     when: summary_show_sd_tokens | default(false) | bool
 
 # ── Environment variables ─────────────────────────────────────────────────────
@@ -85,14 +85,14 @@
     ansible.builtin.debug:
       msg:
       - "  export CONSUL_HTTP_ADDR=http://{{ hostvars[groups['servers'][0]]['ansible_host'] }}:8500"
-      - "  export CONSUL_HTTP_TOKEN={{ lookup('file', inventory_dir + '/tokens/consul-bootstrap-secret-id.txt', errors='ignore') or '(not found)' }}"
+      - "  export CONSUL_HTTP_TOKEN={{ lookup('file', hostvars[groups['servers'][0]]['inventory_dir'] + '/tokens/consul-bootstrap-secret-id.txt', errors='ignore') or '(not found)' }}"
     when: summary_show_consul_env | default(false) | bool
 
   - name: Display Nomad environment variables
     ansible.builtin.debug:
       msg:
       - "  export NOMAD_ADDR=http://{{ hostvars[groups['servers'][0]]['ansible_host'] }}:4646"
-      - "  export NOMAD_TOKEN={{ lookup('file', inventory_dir + '/tokens/nomad-bootstrap-secret-id.txt', errors='ignore') or '(not found)' }}"
+      - "  export NOMAD_TOKEN={{ lookup('file', hostvars[groups['servers'][0]]['inventory_dir'] + '/tokens/nomad-bootstrap-secret-id.txt', errors='ignore') or '(not found)' }}"
     when: summary_show_nomad_env | default(false) | bool
 
   - name: Display helper script instructions

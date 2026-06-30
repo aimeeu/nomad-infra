@@ -5,16 +5,24 @@ applyTo: "ansible/playbooks/**"
 ---
 # Sub-Playbook Conventions — `ansible/playbooks/`
 
-## File Paths — Always Use `inventory_dir`
+## File Paths — `inventory_dir` vs `playbook_dir`
 
-Sub-playbooks run with `playbook_dir = ansible/playbooks/`. Any path built with `playbook_dir` will resolve to `ansible/playbooks/tokens/…` (wrong) instead of `ansible/tokens/…` (correct).
+`inventory_dir` is a per-host magic variable. It is defined for hosts in the inventory (e.g., `servers`, `clients`) but **undefined** for `localhost` plays, because `localhost` is not in `inventory.ini`.
 
-**Rule:** Use `inventory_dir` everywhere you need a path relative to `ansible/`:
+**Rule for plays targeting inventory hosts** (`hosts: servers`, `hosts: clients`): use `inventory_dir`:
 
 ```yaml
 path: "{{ inventory_dir }}/tokens/consul-bootstrap-secret-id.txt"
 path: "{{ inventory_dir }}/.tls/"
 ```
+
+**Rule for plays targeting `localhost`** (e.g., `cluster_summary.yaml`): borrow `inventory_dir` from the first inventory host via `hostvars`. This returns the absolute path regardless of how the playbook is invoked:
+
+```yaml
+lookup('file', hostvars[groups['servers'][0]]['inventory_dir'] + '/tokens/consul-bootstrap-secret-id.txt')
+```
+
+Do **not** use `playbook_dir` for token paths in `localhost` plays. When `cluster_summary.yaml` is imported via `import_playbook`, `playbook_dir` resolves to `ansible/playbooks/` (the imported file's directory), so `playbook_dir + '/tokens/'` looks in `ansible/playbooks/tokens/` which does not exist.
 
 ## Required Play Boilerplate
 

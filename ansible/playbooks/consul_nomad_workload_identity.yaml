@@ -55,6 +55,7 @@
   vars:
     nomad_server_enabled: true
     nomad_server_bootstrap_expect: "{{ groups['servers'] | length }}"
+    nomad_node_name: "nomad-server-{{ groups['servers'].index(inventory_hostname) + 1 }}"
     nomad_client_enabled: false
     nomad_cloud_auto_join_enabled: false
     nomad_acl_enabled: true
