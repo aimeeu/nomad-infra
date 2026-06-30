@@ -281,7 +281,7 @@ The security group allows:
 - **All internal traffic**: Between instances sharing the security group
 - **Egress**: All outbound traffic allowed
 
-See [ansible/README-SECURITY-GROUP.md](ansible/README-SECURITY-GROUP.md) for hardening guidance.
+Refer to [ansible/README-SECURITY-GROUP.md](ansible/README-SECURITY-GROUP.md) for hardening guidance.
 
 ## IAM permissions
 

@@ -15,6 +15,14 @@ argument_specs:
       - nomad-infra
 
     options:
+      dnsmasq_version:
+        type: str
+        required: false
+        default: "2.93"
+        description: >-
+          Version of the dnsmasq package to install. Used as an apt version
+          prefix (for example, "2.93" matches 2.93-1, 2.93-2, and so on).
+
       dnsmasq_upstream_dns_servers:
         type: list
         required: false

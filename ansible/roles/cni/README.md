@@ -16,7 +16,7 @@ The CNI role installs Container Network Interface (CNI) plugins required for Nom
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `cni_plugins_version` | string | `1.9.0` | Version of CNI plugins to install |
+| `cni_plugins_version` | string | `1.9.1` | Version of CNI plugins to install |
 | `cni_plugins_path` | string | `/opt/cni/bin` | Installation directory for CNI binaries |
 | `cni_plugins_config_path` | string | `/opt/cni/config` | Directory for CNI configuration files |
 | `cni_configs` | list | `[]` | List of CNI configuration files to create |

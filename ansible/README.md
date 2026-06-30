@@ -312,7 +312,7 @@ ansible-playbook -i inventory.ini teardown.yaml --tags teardown_tokens
 **Purpose**: Container Network Interface (CNI) plugins installation
 
 **Features**:
-- Downloads CNI plugins v1.9.0 from GitHub
+- Downloads CNI plugins v1.9.1 from GitHub
 - Installs to `/opt/cni/bin`
 - Creates configuration directory at `/opt/cni/config`
 - Only runs on Ubuntu systems
@@ -499,11 +499,11 @@ These can be overridden in playbooks or via command line:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `nomad_binary_version` | `1.11.1` | Nomad version to install |
+| `nomad_binary_version` | `2.0.3` | Nomad version to install |
 | `nomad_log_level` | `INFO` | Logging level (DEBUG, INFO, WARN, ERROR) |
 | `nomad_acl_enabled` | `false` | Enable ACL system |
 | `nomad_cloud_auto_join_enabled` | `true` | Enable AWS cloud auto-join |
-| `cni_plugins_version` | `1.9.0` | CNI plugins version |
+| `cni_plugins_version` | `1.9.1` | CNI plugins version |
 
 ## Usage examples
 
@@ -568,7 +568,7 @@ ansible all -b -a "journalctl -u nomad -n 50"
 
 ```bash
 # Install a different Nomad version
-ansible-playbook site.yaml -e "nomad_binary_version=1.12.0"
+ansible-playbook site.yaml -e "nomad_binary_version=2.0.3"
 
 # Enable ACLs
 ansible-playbook site.yaml -e "nomad_acl_enabled=true"
@@ -651,10 +651,10 @@ post_tasks:
 
 ```bash
 # Edit roles/nomad/defaults/main.yaml
-nomad_binary_version: "1.12.0"
+nomad_binary_version: "2.0.3"
 
 # Or override via command line
-ansible-playbook site.yaml -e "nomad_binary_version=1.12.0"
+ansible-playbook site.yaml -e "nomad_binary_version=2.0.3"
 ```
 
 ## Troubleshooting

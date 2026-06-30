@@ -17,7 +17,7 @@ A generic role for downloading and installing HashiCorp products (Nomad, Consul,
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
 | `hashicorp_release_product_name` | string | `""` | Product name (for example, "nomad" or "consul") |
-| `hashicorp_release_product_version` | string | `""` | Version to install (for example, "1.11.1") |
+| `hashicorp_release_product_version` | string | `""` | Version to install (for example, "2.0.3") |
 | `hashicorp_release_product_install_dir` | string | `/usr/local/bin` | Installation directory |
 | `hashicorp_release_architecture` | string | `amd64` | System architecture |
 
@@ -50,7 +50,7 @@ This role is used **indirectly** through the nomad role, which includes it to in
     - role: hashicorp_release
       vars:
         hashicorp_release_product_name: "nomad"
-        hashicorp_release_product_version: "1.11.1"
+        hashicorp_release_product_version: "2.0.3"
 ```
 
 ### Installing multiple products
@@ -63,7 +63,7 @@ This role is used **indirectly** through the nomad role, which includes it to in
         name: hashicorp_release
       vars:
         hashicorp_release_product_name: "nomad"
-        hashicorp_release_product_version: "1.11.1"
+        hashicorp_release_product_version: "2.0.3"
     
     - name: Install Consul
       ansible.builtin.include_role:
@@ -121,7 +121,7 @@ None - this is a standalone utility role
     - role: hashicorp_release
       vars:
         hashicorp_release_product_name: "nomad"
-        hashicorp_release_product_version: "1.12.0"  # New version
+        hashicorp_release_product_version: "2.0.3"  # New version
 ```
 
 ### Install specific architecture
@@ -132,7 +132,7 @@ None - this is a standalone utility role
     - role: hashicorp_release
       vars:
         hashicorp_release_product_name: "nomad"
-        hashicorp_release_product_version: "1.11.1"
+        hashicorp_release_product_version: "2.0.3"
         hashicorp_release_architecture: "arm64"
 ```
 
@@ -151,7 +151,7 @@ None - this is a standalone utility role
 curl -I https://releases.hashicorp.com
 
 # Verify URL format
-echo "https://releases.hashicorp.com/nomad/1.11.1/nomad_1.11.1_linux_amd64.zip"
+echo "https://releases.hashicorp.com/nomad/2.0.3/nomad_2.0.3_linux_amd64.zip"
 ```
 
 ### Version not updating

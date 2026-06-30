@@ -36,6 +36,10 @@ dnsmasq (127.0.0.1:53)
 ## Key variables
 
 | Variable | Default | Description |
+|---|---|---|
+| `dnsmasq_version` | `2.93` | dnsmasq package version to install |
+
+| Variable | Default | Description |
 |----------|---------|-------------|
 | `dnsmasq_upstream_dns_servers` | `["169.254.169.253"]` | Upstream resolvers for non-.consul queries |
 | `consul_dns_port` | `8600` | Consul agent DNS port |
