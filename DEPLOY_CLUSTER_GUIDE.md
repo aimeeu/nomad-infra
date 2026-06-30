@@ -653,9 +653,17 @@ Try a different availability zone or instance type (for example, `t3a.medium`), 
 
 ## Cleanup
 
+From the `ansible` directory, run the teardown playbook. After removing software
+and reversing configuration on the VMs, this playbook removes tokens and TLS
+certificates from your workstation.
+
+```shell
+ansible-playbook -i inventory.ini teardown.yaml
+```
+
+Then destroy all EC2 instances, VPC, IAM roles, and SSH key pairs.
+
 ```bash
 cd terraform/aws
 terraform destroy
 ```
-
-Destroys all EC2 instances, VPC, IAM roles, and SSH key pairs.
