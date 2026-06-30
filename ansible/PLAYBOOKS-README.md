@@ -455,7 +455,7 @@ ansible-playbook -i inventory.ini playbooks/consul_nomad_integration.yaml
 
 **What it does:**
 
-Imports `consul_nomad_service_discovery.yaml` then `consul_nomad_workload_identity.yaml` in sequence. Both phases run by default. See those playbooks below for full details.
+Imports `consul_nomad_service_discovery.yaml` then `consul_nomad_workload_identity.yaml` in sequence. Both phases run by default. Refer to those playbooks below for full details.
 
 **To skip workload identity and run service discovery only:**
 

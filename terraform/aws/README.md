@@ -40,7 +40,7 @@ graph TB
 | `aws_internet_gateway` | 1 | Attached to VPC |
 | `aws_default_route_table` | 1 | Default route `0.0.0.0/0` → IGW |
 | `aws_subnet` | 1 | `10.0.1.0/24`, auto-assign public IPs |
-| `aws_security_group` | 1 | See port table below |
+| `aws_security_group` | 1 | Refer to port table below |
 | `aws_instance` (servers) | 3 | Ubuntu 24.04, t3.medium, 50 GB gp3, `AutoJoinRole=server` |
 | `aws_instance` (clients) | 2 | Ubuntu 24.04, t3.medium, 50 GB gp3, `AutoJoinRole=client` |
 | `aws_iam_role` | 1 | Trust policy for EC2 service |
@@ -60,7 +60,7 @@ graph TB
 | Ingress | all | all | Self (security group) | All internal cluster traffic |
 | Egress | all | all | `0.0.0.0/0` | All outbound traffic |
 
-Consul port 8500 and Nomad port 4646 are open to the internet by default. Restrict these for production deployments. See [../README-SECURITY-GROUP.md](../README-SECURITY-GROUP.md).
+Consul port 8500 and Nomad port 4646 are open to the internet by default. Restrict these for production deployments. Refer to [../README-SECURITY-GROUP.md](../README-SECURITY-GROUP.md).
 
 **Note:** Nomad ports 4647 (RPC) and 4648 (Serf) are covered by the `self` rule that allows all internal traffic within the security group.
 

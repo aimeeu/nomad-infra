@@ -169,7 +169,7 @@
         - "  export CONSUL_HTTP_TOKEN=<your-token>"
         - ""
         - "If the token is lost, you must reset the ACL system."
-        - "See: https://developer.hashicorp.com/consul/docs/security/acl/acl-system"
+        - "Refer to: https://developer.hashicorp.com/consul/docs/security/acl/acl-system"
         - ""
         - "=========================================="
 

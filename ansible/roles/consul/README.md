@@ -52,7 +52,7 @@ Set `consul_cloud_auto_join_enabled: true` and ensure the EC2 instances carry th
 
 ## Usage
 
-See the top-level playbooks:
+Refer to the top-level playbooks:
 - `ansible/consul_servers.yaml` — configures the `[servers]` group as Consul servers
 - `ansible/consul_clients.yaml` — configures the `[clients]` group as Consul clients
 

@@ -38,7 +38,7 @@ ansible-playbook -i inventory.ini deploy_consul_nomad_wi.yaml
 
 **Expected duration**: ~10–15 minutes for a 5-node cluster (3 servers + 2 clients).
 
-See [PLAYBOOKS-README.md](PLAYBOOKS-README.md) for all available deployment scenarios.
+Refer to [PLAYBOOKS-README.md](PLAYBOOKS-README.md) for all available deployment scenarios.
 
 ## Directory structure
 
@@ -121,7 +121,7 @@ ansible-playbook -i inventory.ini playbooks/consul_nomad_workload_identity.yaml
 ansible-playbook -i inventory.ini playbooks/dnsmasq.yaml
 ```
 
-See [PLAYBOOKS-README.md](PLAYBOOKS-README.md) for detailed documentation on every playbook, its variables, output files, and run order.
+Refer to [PLAYBOOKS-README.md](PLAYBOOKS-README.md) for detailed documentation on every playbook, its variables, output files, and run order.
 
 ## Roles
 

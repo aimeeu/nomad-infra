@@ -97,7 +97,7 @@ graph TB
 | 4646 | TCP | Nomad HTTP API & UI | 0.0.0.0/0 |
 | all | all | Internal cluster traffic | Internal (security group) |
 
-Restrict these in production. See [ansible/README-SECURITY-GROUP.md](ansible/README-SECURITY-GROUP.md).
+Restrict these in production. Refer to [ansible/README-SECURITY-GROUP.md](ansible/README-SECURITY-GROUP.md).
 
 ## Prerequisites
 
@@ -150,7 +150,7 @@ ansible-galaxy install -r requirements.yaml
 | [`deploy_consul_nomad_sd.yaml`](ansible/deploy_consul_nomad_sd.yaml) | Consul + Nomad + service discovery | Nomad registers services and health checks via Consul |
 | [`deploy_consul_nomad_wi.yaml`](ansible/deploy_consul_nomad_wi.yaml) | Consul + Nomad + service discovery + workload identity | Nomad workloads obtain scoped Consul tokens automatically |
 
-Each playbook configures all hosts, tests Ansible connectivity, deploys the named services, and prints a cluster status summary with access tokens and environment variable export commands. See [ansible/PLAYBOOKS-README.md](ansible/PLAYBOOKS-README.md) for full details on each scenario.
+Each playbook configures all hosts, tests Ansible connectivity, deploys the named services, and prints a cluster status summary with access tokens and environment variable export commands. Refer to [ansible/PLAYBOOKS-README.md](ansible/PLAYBOOKS-README.md) for full details on each scenario.
 
 #### Use case 1: Consul cluster only
 

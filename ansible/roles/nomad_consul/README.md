@@ -91,7 +91,7 @@ ansible-playbook -i inventory.ini consul_nomad_service_discovery.yaml
 | `nomad_consul_auth_method_name` | `nomad-workloads` | Consul JWT auth method name |
 | `nomad_consul_tasks_role_name` | `nomad-tasks-default` | Consul ACL role for Nomad tasks in the default namespace |
 
-See [`defaults/main.yaml`](defaults/main.yaml) for the full variable reference.
+Refer to [`defaults/main.yaml`](defaults/main.yaml) for the full variable reference.
 
 ## Architecture
 

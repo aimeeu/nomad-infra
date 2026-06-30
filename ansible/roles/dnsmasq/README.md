@@ -49,7 +49,7 @@ dnsmasq (127.0.0.1:53)
 | `dnsmasq_update_resolv_conf` | `true` | Rewrite `/etc/resolv.conf` |
 | `dnsmasq_consul_rev_networks` | RFC 1918 blocks | Networks for Consul reverse DNS |
 
-See [`defaults/main.yaml`](defaults/main.yaml) for the full variable reference.
+Refer to [`defaults/main.yaml`](defaults/main.yaml) for the full variable reference.
 
 ## Validation
 

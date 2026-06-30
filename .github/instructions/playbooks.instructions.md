@@ -51,7 +51,7 @@ Bootstrap plays (`consul_acl_bootstrap.yaml`, `nomad_acl_bootstrap.yaml`) must r
       ...
 ```
 
-See [consul_acl_bootstrap.yaml](consul_acl_bootstrap.yaml) for the full reference implementation.
+Refer to [consul_acl_bootstrap.yaml](consul_acl_bootstrap.yaml) for the full reference implementation.
 
 ## Token Write Pattern
 
@@ -146,7 +146,7 @@ Always import `cluster_summary.yaml` at the end of a deploy entrypoint, not in s
     summary_show_consul_ui: true
 ```
 
-See the full variable list in the header comment of [cluster_summary.yaml](cluster_summary.yaml).
+Refer to the full variable list in the header comment of [cluster_summary.yaml](cluster_summary.yaml).
 
 ## Prerequisite Comments
 

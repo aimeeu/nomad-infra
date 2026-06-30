@@ -6,7 +6,7 @@ Step-by-step instructions for deploying a co-located HashiCorp Consul and Nomad 
 
 The deployment has two phases:
 
-1. **Terraform** — Provisions AWS infrastructure (~5 minutes)
+1. **Terraform** — Provisions AWS infrastructure (~five minutes)
 2. **Ansible** — Installs and configures Consul and Nomad (~10–15 minutes)
 
 ```mermaid
@@ -96,7 +96,7 @@ aws sts get-caller-identity
 
 ---
 
-## Phase 1: Infrastructure provisioning (Terraform)
+## Phase 1: Provision infrastructure (Terraform)
 
 ### Step 1: Configure variables
 
@@ -117,7 +117,7 @@ vpc_cidr             = "10.0.0.0/16"
 subnet_cidr          = "10.0.1.0/24"
 
 # IMPORTANT: restrict to your IP
-allowed_ssh_cidr     = "YOUR_IP/32"
+allowed_ssh_cidr     = "<your-ip>/32"
 
 server_count         = 3   # Use odd numbers: 3, 5, or 7
 client_count         = 2
@@ -139,7 +139,7 @@ Downloads the AWS, Local, Null, and TLS providers.
 terraform plan
 ```
 
-Expect ~18 resources to be created. Review instance types, counts, and security group rules before proceeding.
+Expect Terraform to create ~18 resources. Review instance types, counts, and security group rules before proceeding.
 
 ### Step 4: Apply
 
@@ -147,7 +147,7 @@ Expect ~18 resources to be created. Review instance types, counts, and security 
 terraform apply
 ```
 
-Type `yes` when prompted. Duration: ~5 minutes.
+Type `yes` when prompted. Duration: ~five minutes.
 
 **What Terraform creates:**
 
@@ -294,7 +294,7 @@ Sub-playbooks executed in order:
 
 | Step | Sub-playbook | Hosts | What it does |
 |------|-------------|-------|--------------|
-| 1–9 | Same as Option C | — | See Option C table above |
+| 1–9 | Same as Option C | — | Refer to Option C table |
 | 10 | `consul_nomad_workload_identity` | `servers[0]` + `[servers]` | Creates Consul ACL policy `nomad-tasks-policy`; creates JWT auth method `nomad-workloads` (JWKS URL points to first Nomad server port 4646); creates binding rule mapping `nomad_service` JWT claims to Consul service identities; creates role `nomad-tasks-default`; creates binding rule mapping task workload JWTs to `nomad-tasks-default`; reconfigures Nomad servers with `service_identity` and `task_identity` blocks in the `consul {}` stanza; restarts Nomad servers |
 | 11 | `cluster_summary` | `localhost` | Prints all tokens, all `export` commands, and both UI URLs |
 
@@ -435,7 +435,7 @@ Post-task: waits for Nomad HTTP API on port 4646.
 
 ## Phase 3: ACL bootstrap (for individual layer deployments)
 
-> **Note:** ACL bootstrap is included automatically in all four use case entrypoints (`deploy_consul.yaml`, `deploy_nomad.yaml`, `deploy_consul_nomad_sd.yaml`, `deploy_consul_nomad_wi.yaml`). Only run these playbooks separately if you deployed Consul or Nomad using individual layer playbooks from the [Advanced section](#advanced-run-individual-layers) above.
+> **Note:** ACL bootstrap is included automatically in all four use case entrypoints (`deploy_consul.yaml`, `deploy_nomad.yaml`, `deploy_consul_nomad_sd.yaml`, `deploy_consul_nomad_wi.yaml`). Only run these playbooks separately if you deployed Consul or Nomad using individual layer playbooks from the [Advanced section](#advanced-run-individual-layers).
 
 The bootstrap must be run **once**, after the cluster is first formed.
 
@@ -657,7 +657,7 @@ From the `ansible` directory, run the teardown playbook. After removing software
 and reversing configuration on the VMs, this playbook removes tokens and TLS
 certificates from your workstation.
 
-```shell
+```bash
 ansible-playbook -i inventory.ini teardown.yaml
 ```
 
