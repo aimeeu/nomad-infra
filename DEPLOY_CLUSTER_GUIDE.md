@@ -664,6 +664,6 @@ ansible-playbook -i inventory.ini teardown.yaml
 Then destroy all EC2 instances, VPC, IAM roles, and SSH key pairs.
 
 ```bash
-cd terraform/aws
+cd ../terraform/aws
 terraform destroy
 ```
